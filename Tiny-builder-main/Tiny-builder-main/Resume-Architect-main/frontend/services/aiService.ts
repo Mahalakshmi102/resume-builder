@@ -1,4 +1,4 @@
-import { enhanceText as geminiEnhanceText } from './geminiService';
+import { enhanceText as geminiEnhanceText, generateTailoredResumeDirectly } from './geminiService';
 import {
   enhanceTextAPI,
   analyzeResumeAPI,
@@ -142,10 +142,17 @@ export const generateTailoredRoleResume = async (
     try {
       return await generateRoleResumeAPI(resumeData, targetRole, jobDescriptionText);
     } catch (err) {
-      console.warn('[aiService] Backend generation failed, using local:', err);
+      console.warn('[aiService] Backend generation failed, trying direct frontend Gemini:', err);
     }
   }
-  return generateRoleBasedResumeContent(resumeData, targetRole, jobDescriptionText);
+  
+  // Try direct frontend Gemini API
+  try {
+    return await generateTailoredResumeDirectly(resumeData, targetRole, jobDescriptionText);
+  } catch (err) {
+    console.warn('[aiService] Direct frontend Gemini failed, using hardcoded fallback:', err);
+    return generateRoleBasedResumeContent(resumeData, targetRole, jobDescriptionText);
+  }
 };
 
 // ============================================================

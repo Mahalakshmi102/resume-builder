@@ -9,7 +9,17 @@ interface ResumeFormProps {
   onOpenEvidence?: (skillName?: string) => void;
 }
 
-const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence }) => {
+const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpenEvidence }) => {
+  // Guarantee arrays are defined to prevent mapping errors when AI returns missing fields
+  const data = {
+    ...rawData,
+    experience: rawData.experience || [],
+    projects: rawData.projects || [],
+    education: rawData.education || [],
+    skills: rawData.skills || [],
+    certifications: rawData.certifications || []
+  };
+
   const [activeSection, setActiveSection] = useState<string | null>('personal');
   const [loadingEnhance, setLoadingEnhance] = useState<string | null>(null);
 
@@ -118,15 +128,40 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
     updateField('skills', data.skills.map(s => s.id === id ? { ...s, name } : s));
   };
 
-  const SectionHeader = ({ title, id }: { title: string, id: string }) => (
-    <button 
-      onClick={() => toggleSection(id)}
-      className="w-full flex items-center justify-between p-4 bg-white border-b hover:bg-slate-50 transition-colors"
-    >
-      <span className="font-semibold text-slate-700">{title}</span>
-      {activeSection === id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-    </button>
-  );
+  const SectionHeader = ({ title, id, sectionKey }: { title: string, id: string, sectionKey?: string }) => {
+    const isVisible = sectionKey ? data.sections?.[sectionKey] !== false : true;
+    
+    const handleToggleVisibility = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!sectionKey) return;
+      const newSections = { ...(data.sections || {}), [sectionKey]: !isVisible };
+      updateField('sections', newSections);
+    };
+
+    return (
+      <button 
+        onClick={() => toggleSection(id)}
+        className={`w-full flex items-center justify-between p-4 bg-white border-b hover:bg-slate-50 transition-colors ${!isVisible ? 'opacity-60 bg-slate-50' : ''}`}
+      >
+        <div className="flex items-center gap-3">
+          <span className={`font-semibold ${!isVisible ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{title}</span>
+          {!isVisible && <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">Hidden</span>}
+        </div>
+        <div className="flex items-center gap-3">
+          {sectionKey && (
+            <div 
+              onClick={handleToggleVisibility}
+              className={`p-1.5 rounded text-slate-400 hover:text-slate-700 transition-colors ${isVisible ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-emerald-50 hover:text-emerald-600'}`}
+              title={isVisible ? "Hide section from resume" : "Show section on resume"}
+            >
+              {isVisible ? <Trash2 size={16} /> : <Plus size={16} />}
+            </div>
+          )}
+          {activeSection === id ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-slate-100 border-r border-slate-200">
@@ -243,7 +278,15 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
             
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-medium text-slate-500 uppercase">Professional Summary</label>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-slate-500 uppercase">Professional Summary</label>
+                  <button 
+                    onClick={() => updateField('sections', { ...(data.sections || {}), summary: data.sections?.summary === false ? true : false })}
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${data.sections?.summary !== false ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                  >
+                    {data.sections?.summary !== false ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 <button 
                   onClick={() => handleEnhance('summary', data.summary, 'summary')}
                   disabled={loadingEnhance === 'summary'}
@@ -265,7 +308,7 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
 
       {/* Experience */}
       <div className="bg-white mb-2 shadow-sm">
-        <SectionHeader title="Work Experience" id="experience" />
+        <SectionHeader title="Work Experience" id="experience" sectionKey="experience" />
         {activeSection === 'experience' && (
           <div className="p-4 space-y-6">
             {data.experience.map((exp) => (
@@ -346,7 +389,7 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
 
        {/* Projects (New Section) */}
        <div className="bg-white mb-2 shadow-sm">
-        <SectionHeader title="Projects" id="projects" />
+        <SectionHeader title="Projects" id="projects" sectionKey="projects" />
         {activeSection === 'projects' && (
           <div className="p-4 space-y-6">
             {data.projects.map((proj) => (
@@ -403,7 +446,7 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
 
       {/* Education */}
       <div className="bg-white mb-2 shadow-sm">
-        <SectionHeader title="Education" id="education" />
+        <SectionHeader title="Education" id="education" sectionKey="education" />
         {activeSection === 'education' && (
           <div className="p-4 space-y-4">
              {data.education.map((edu) => (
@@ -456,7 +499,7 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
 
        {/* Skills */}
       <div className="bg-white mb-2 shadow-sm">
-        <SectionHeader title="Skills" id="skills" />
+        <SectionHeader title="Skills" id="skills" sectionKey="skills" />
         {activeSection === 'skills' && (
           <div className="p-4">
             <div className="flex flex-wrap gap-2 mb-4">
@@ -498,7 +541,7 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, onOpenEvidence 
 
       {/* Certifications */}
       <div className="bg-white mb-2 shadow-sm">
-        <SectionHeader title="Certifications" id="certifications" />
+        <SectionHeader title="Certifications" id="certifications" sectionKey="certifications" />
         {activeSection === 'certifications' && (
           <div className="p-4 space-y-4">
             {(data.certifications || []).length === 0 && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResumeData, EvidenceItem } from './types';
 import Navbar, { NavTab } from './components/Navbar';
 import ResumeForm from './components/ResumeForm';
@@ -9,12 +9,50 @@ import EvidencePage from './components/EvidencePage';
 import ReportsPage from './components/ReportsPage';
 import WhyThisSkillModal from './components/WhyThisSkillModal';
 import { demoResumeData, demoEvidenceList } from './services/demoData';
+import { loadResumeSessionAPI, saveResumeSessionAPI } from './services/apiClient';
+import { useAuth } from './contexts/AuthContext';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('builder');
-  const [resumeData, setResumeData] = useState<ResumeData>(demoResumeData);
-  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(demoEvidenceList);
+  const [resumeData, setResumeData] = useState<ResumeData | null>(null);
+  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([]);
   const [whySkillModalName, setWhySkillModalName] = useState<string | null>(null);
+  const { session } = useAuth();
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      loadResumeSessionAPI(session.user.id)
+        .then((data: any) => {
+          if (data && data.resumeData) {
+             setResumeData(data.resumeData);
+             setEvidenceList(data.evidenceList || []);
+          } else {
+             // If no resume is found in backend, use a blank one instead of demo data
+             setResumeData({ ...demoResumeData, fullName: '', summary: '', experience: [], projects: [], education: [], skills: [] });
+             setActiveTab('analyzer'); // Redirect to analyzer to upload PDF
+          }
+        })
+        .catch(() => {
+          // On error, start fresh
+          setResumeData({ ...demoResumeData, fullName: '', summary: '', experience: [], projects: [], education: [], skills: [] });
+          setActiveTab('analyzer');
+        });
+    }
+  }, [session]);
+
+  const handleSaveToCloud = async () => {
+    if (!session?.user?.id || !resumeData) return;
+    try {
+      await saveResumeSessionAPI(resumeData, session.user.id);
+      alert('Resume saved to cloud successfully!');
+    } catch (err: any) {
+      alert('Failed to save resume: ' + err.message);
+    }
+  };
+
+  if (!resumeData) {
+    return <div className="h-screen flex items-center justify-center">Loading your resume...</div>;
+  }
 
   const handleLoadDemoProfile = () => {
     setResumeData(demoResumeData);
@@ -108,6 +146,7 @@ const App: React.FC = () => {
         onDownloadWord={downloadWord}
         onDownloadPDF={downloadPDF}
         onPrint={handlePrint}
+        onSave={handleSaveToCloud}
         activeProfileName={resumeData.fullName}
       />
 

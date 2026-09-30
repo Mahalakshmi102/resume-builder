@@ -8,7 +8,17 @@ interface ResumePreviewProps {
   onSkillClick?: (skillName: string) => void;
 }
 
-const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillClick }) => {
+const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1, onSkillClick }) => {
+  // Ensure array fields are never undefined to prevent crash during rendering
+  const data = {
+    ...rawData,
+    experience: rawData.experience || [],
+    projects: rawData.projects || [],
+    education: rawData.education || [],
+    skills: rawData.skills || [],
+    certifications: rawData.certifications || []
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     const date = new Date(dateStr + '-01');
@@ -51,7 +61,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
             <div className="grid grid-cols-12 gap-8">
               {/* Left Column (Main details) */}
               <div className="col-span-8 space-y-8">
-                {data.summary && (
+                {data.summary && data.sections?.summary !== false && (
                   <section>
                     <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-3 flex items-center gap-2">
                       <span className="w-1.5 h-4 bg-indigo-600 inline-block rounded-full"></span> About Me
@@ -60,7 +70,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                   </section>
                 )}
 
-                {data.experience.length > 0 && (
+                {data.experience.length > 0 && data.sections?.experience !== false && (
                   <section>
                     <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-5 flex items-center gap-2">
                       <span className="w-1.5 h-4 bg-indigo-600 inline-block rounded-full"></span> Work History
@@ -84,7 +94,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                   </section>
                 )}
 
-                {data.projects.length > 0 && (
+                {data.projects.length > 0 && data.sections?.projects !== false && (
                   <section>
                     <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2">
                       <span className="w-1.5 h-4 bg-indigo-600 inline-block rounded-full"></span> Featured Projects
@@ -106,7 +116,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
 
               {/* Right Column (Side details) */}
               <div className="col-span-4 space-y-8">
-                {data.skills.length > 0 && (
+                {data.skills.length > 0 && data.sections?.skills !== false && (
                   <section className="bg-slate-50 p-5 rounded-xl border border-slate-100">
                     <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2">
                       <span className="w-1.5 h-4 bg-indigo-600 inline-block rounded-full"></span> Key Competencies
@@ -121,7 +131,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                   </section>
                 )}
 
-                {data.education.length > 0 && (
+                {data.education.length > 0 && data.sections?.education !== false && (
                   <section className="bg-slate-50 p-5 rounded-xl border border-slate-100">
                     <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-4 flex items-center gap-2">
                       <span className="w-1.5 h-4 bg-indigo-600 inline-block rounded-full"></span> Education
@@ -171,14 +181,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                 </div>
               </div>
 
-              {data.summary && (
+              {data.summary && data.sections?.summary !== false && (
                 <div>
                   <div className="text-emerald-400 font-bold mb-1">guest@resume-arch:~$ <span className="text-white">cat profile.txt</span></div>
                   <p className="text-xs leading-relaxed text-slate-300 whitespace-pre-wrap border-l-2 border-emerald-500/50 pl-3">{data.summary}</p>
                 </div>
               )}
 
-              {data.experience.length > 0 && (
+              {data.experience.length > 0 && data.sections?.experience !== false && (
                 <div>
                   <div className="text-emerald-400 font-bold mb-3">guest@resume-arch:~$ <span className="text-white">git log --oneline --experience</span></div>
                   <div className="space-y-4">
@@ -196,7 +206,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                 </div>
               )}
 
-              {data.projects.length > 0 && (
+              {data.projects.length > 0 && data.sections?.projects !== false && (
                 <div>
                   <div className="text-emerald-400 font-bold mb-2">guest@resume-arch:~$ <span className="text-white">ls -la projects/</span></div>
                   <div className="grid grid-cols-1 gap-3">
@@ -214,7 +224,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {data.skills.length > 0 && (
+                {data.skills.length > 0 && data.sections?.skills !== false && (
                   <div>
                     <div className="text-emerald-400 font-bold mb-2">guest@resume-arch:~$ <span className="text-white">cat skills.json</span></div>
                     <div className="bg-slate-900 border border-slate-800 rounded-md p-3 text-xs text-indigo-300 font-mono">
@@ -235,7 +245,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                   </div>
                 )}
 
-                {data.education.length > 0 && (
+                {data.education.length > 0 && data.sections?.education !== false && (
                   <div>
                     <div className="text-emerald-400 font-bold mb-2">guest@resume-arch:~$ <span className="text-white">cat education.log</span></div>
                     <div className="border border-slate-800 p-3 rounded-md bg-slate-900/20 space-y-3">
@@ -270,14 +280,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               </div>
             </header>
 
-            {data.summary && (
+            {data.summary && data.sections?.summary !== false && (
               <section className="mb-6">
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Professional Summary</h2>
                 <p className="leading-relaxed text-sm">{data.summary}</p>
               </section>
             )}
 
-            {data.experience.length > 0 && (
+            {data.experience.length > 0 && data.sections?.experience !== false && (
               <section className="mb-6">
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Experience</h2>
                 <div className="space-y-4">
@@ -294,7 +304,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               </section>
             )}
 
-            {data.projects.length > 0 && (
+            {data.projects.length > 0 && data.sections?.projects !== false && (
                <section className="mb-6">
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Projects</h2>
                 <div className="space-y-4">
@@ -310,7 +320,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               </section>
             )}
 
-            {data.education.length > 0 && (
+            {data.education.length > 0 && data.sections?.education !== false && (
               <section className="mb-6">
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Education</h2>
                 {data.education.map(edu => (
@@ -325,7 +335,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               </section>
             )}
 
-             {data.skills.length > 0 && (
+             {data.skills.length > 0 && data.sections?.skills !== false && (
               <section>
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Skills</h2>
                 <div className="text-sm leading-relaxed">
@@ -351,13 +361,13 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
             </header>
 
             <div className="max-w-3xl mx-auto space-y-8">
-               {data.summary && (
+               {data.summary && data.sections?.summary !== false && (
                 <section>
                   <p className="text-center text-slate-600 leading-relaxed italic">{data.summary}</p>
                 </section>
               )}
 
-              {data.experience.length > 0 && (
+              {data.experience.length > 0 && data.sections?.experience !== false && (
                 <section>
                   <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6 text-center">Work Experience</h2>
                   <div className="space-y-8 border-l border-slate-200 ml-3 pl-6 relative">
@@ -373,7 +383,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                 </section>
               )}
 
-              {data.projects.length > 0 && (
+              {data.projects.length > 0 && data.sections?.projects !== false && (
                  <section>
                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6 text-center">Projects</h2>
                    <div className="grid grid-cols-1 gap-4">
@@ -391,7 +401,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               )}
 
               <div className="grid grid-cols-2 gap-8">
-                 {data.education.length > 0 && (
+                 {data.education.length > 0 && data.sections?.education !== false && (
                   <section>
                     <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 text-center">Education</h2>
                     {data.education.map(edu => (
@@ -403,7 +413,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                     ))}
                   </section>
                 )}
-                {data.skills.length > 0 && (
+                {data.skills.length > 0 && data.sections?.skills !== false && (
                    <section>
                     <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 text-center">Skills</h2>
                     <div className="flex flex-wrap justify-center gap-2">
@@ -438,7 +448,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                 <ContactItem icon={Globe} text={data.website} />
               </div>
 
-              {data.education.length > 0 && (
+              {data.education.length > 0 && data.sections?.education !== false && (
                  <div>
                   <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700 pb-1">Education</h3>
                   {data.education.map(edu => (
@@ -451,7 +461,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                  </div>
               )}
 
-              {data.skills.length > 0 && (
+              {data.skills.length > 0 && data.sections?.skills !== false && (
                 <div>
                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700 pb-1">Skills</h3>
                    <div className="flex flex-wrap gap-2">
@@ -465,14 +475,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
             
             {/* Main Content */}
             <div className="w-2/3 p-8 bg-white text-slate-800">
-               {data.summary && (
+               {data.summary && data.sections?.summary !== false && (
                 <section className="mb-8">
                   <h2 className="text-xl font-bold text-slate-900 mb-3">Profile</h2>
                   <p className="text-sm leading-relaxed text-slate-600">{data.summary}</p>
                 </section>
               )}
 
-              {data.experience.length > 0 && (
+              {data.experience.length > 0 && data.sections?.experience !== false && (
                 <section className="mb-8">
                    <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                      <span className="w-2 h-8 bg-slate-900 inline-block rounded-sm"></span> Experience
@@ -492,7 +502,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                 </section>
               )}
 
-              {data.projects.length > 0 && (
+              {data.projects.length > 0 && data.sections?.projects !== false && (
                 <section>
                    <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                      <span className="w-2 h-8 bg-slate-900 inline-block rounded-sm"></span> Projects
@@ -530,14 +540,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
 
             <div className="grid grid-cols-12 gap-8">
                <div className="col-span-8 space-y-8">
-                  {data.summary && (
+                  {data.summary && data.sections?.summary !== false && (
                     <section>
                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Executive Profile</h2>
                       <p className="text-md leading-relaxed font-medium text-slate-800">{data.summary}</p>
                     </section>
                   )}
 
-                   {data.experience.length > 0 && (
+                   {data.experience.length > 0 && data.sections?.experience !== false && (
                     <section>
                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Professional Experience</h2>
                       <div className="space-y-6">
@@ -555,7 +565,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                     </section>
                   )}
 
-                  {data.projects.length > 0 && (
+                  {data.projects.length > 0 && data.sections?.projects !== false && (
                      <section>
                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Key Initiatives</h2>
                       <div className="grid grid-cols-1 gap-4">
@@ -571,7 +581,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                </div>
 
                <div className="col-span-4 space-y-8">
-                 {data.education.length > 0 && (
+                 {data.education.length > 0 && data.sections?.education !== false && (
                     <section>
                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Education</h2>
                       {data.education.map(edu => (
@@ -584,7 +594,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                     </section>
                   )}
                   
-                  {data.skills.length > 0 && (
+                  {data.skills.length > 0 && data.sections?.skills !== false && (
                     <section>
                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Core Competencies</h2>
                       <div className="flex flex-col gap-2">
@@ -619,14 +629,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               </div>
             </header>
 
-            {data.summary && (
+            {data.summary && data.sections?.summary !== false && (
               <section className="mb-6">
                 <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 border-b pb-1">Professional Profile</h2>
                 <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{data.summary}</p>
               </section>
             )}
 
-            {data.experience.length > 0 && (
+            {data.experience.length > 0 && data.sections?.experience !== false && (
               <section className="mb-6">
                 <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-4 border-b pb-1">Experience</h2>
                 <div className="space-y-5">
@@ -646,7 +656,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
               </section>
             )}
 
-            {data.projects.length > 0 && (
+            {data.projects.length > 0 && data.sections?.projects !== false && (
                <section className="mb-6">
                 <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-4 border-b pb-1">Projects</h2>
                 <div className="space-y-4">
@@ -664,7 +674,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
             )}
 
             <div className="grid grid-cols-2 gap-8">
-              {data.education.length > 0 && (
+              {data.education.length > 0 && data.sections?.education !== false && (
                 <section className="mb-6">
                   <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-4 border-b pb-1">Education</h2>
                   <div className="space-y-4">
@@ -683,7 +693,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, scale = 1, onSkillC
                 </section>
               )}
               
-               {data.skills.length > 0 && (
+               {data.skills.length > 0 && data.sections?.skills !== false && (
                 <section className="mb-6">
                   <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-4 border-b pb-1">Skills</h2>
                   <div className="flex flex-wrap gap-x-6 gap-y-2">

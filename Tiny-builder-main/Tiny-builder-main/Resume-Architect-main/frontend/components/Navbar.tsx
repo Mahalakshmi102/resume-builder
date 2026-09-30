@@ -10,6 +10,7 @@ interface NavbarProps {
   onDownloadWord: () => void;
   onDownloadPDF: () => void;
   onPrint: () => void;
+  onSave?: () => void;
   activeProfileName?: string;
 }
 
@@ -20,6 +21,7 @@ const Navbar: React.FC<NavbarProps> = ({
   onDownloadWord,
   onDownloadPDF,
   onPrint,
+  onSave,
   activeProfileName = 'Joshva Rahul',
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -75,13 +77,30 @@ const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Header Actions */}
           <div className="hidden md:flex items-center gap-2">
+            {onSave && (
+              <button
+                onClick={onSave}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                title="Save Resume to Cloud"
+              >
+                <FileText size={14} className="text-emerald-600" />
+                Save Master
+              </button>
+            )}
             <button
               onClick={onLoadDemo}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs"
               title="Load complete Joshva Rahul profile with projects & evidence"
             >
               <Sparkles size={14} className="text-amber-600" />
-              Load Demo Profile
+              Demo
+            </button>
+            <button
+              onClick={() => import('../services/supabaseClient').then(({ supabase }) => supabase.auth.signOut())}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+              title="Log Out"
+            >
+              Log Out
             </button>
 
             {activeTab === 'builder' && (

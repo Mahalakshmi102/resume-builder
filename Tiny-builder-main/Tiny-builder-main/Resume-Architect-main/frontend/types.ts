@@ -55,6 +55,7 @@ export interface ResumeData {
   projects: Project[];
   certifications?: Certification[];
   templateId: 'modern' | 'classic' | 'minimal' | 'sidebar' | 'executive' | 'creative' | 'developer';
+  sections?: Record<string, boolean>;
 }
 
 export interface AnalysisResult {

@@ -117,16 +117,13 @@ const JobMatcher: React.FC<JobMatcherProps> = ({
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                 Target Role
               </label>
-              <select
+              <input
+                type="text"
                 value={targetRole}
                 onChange={(e) => setTargetRole(e.target.value)}
+                placeholder="e.g. Product Manager, DevOps Engineer"
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <option value="Frontend Developer">Frontend Developer</option>
-                <option value="Full Stack Developer">Full Stack Developer</option>
-                <option value="Data Analyst">Data Analyst / Python Dev</option>
-                <option value="Software Engineer">Software Engineer</option>
-              </select>
+              />
             </div>
 
             <div>

@@ -74,6 +74,14 @@ export const demoResumeData: ResumeData = {
     },
   ],
   templateId: 'modern',
+  sections: {
+    summary: true,
+    experience: true,
+    education: true,
+    skills: true,
+    projects: true,
+    certifications: true,
+  },
 };
 
 export const demoEvidenceList: EvidenceItem[] = [

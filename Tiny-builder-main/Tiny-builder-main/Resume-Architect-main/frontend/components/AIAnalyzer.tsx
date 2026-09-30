@@ -543,11 +543,11 @@ const AIAnalyzer: React.FC<AIAnalyzerProps> = ({
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Education</span>
-                <span className="font-semibold text-slate-900">{resumeData.education[0]?.degree || 'B.Tech IT'}</span>
+                <span className="font-semibold text-slate-900">{resumeData.education?.[0]?.degree || 'B.Tech IT'}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Projects</span>
-                <span className="font-semibold text-slate-900">{resumeData.projects.length} Projects Listed</span>
+                <span className="font-semibold text-slate-900">{(resumeData.projects || []).length} Projects Listed</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Certifications</span>
