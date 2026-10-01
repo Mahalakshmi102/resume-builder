@@ -7,6 +7,7 @@ import AIAnalyzer from './components/AIAnalyzer';
 import JobMatcher from './components/JobMatcher';
 import EvidencePage from './components/EvidencePage';
 import ReportsPage from './components/ReportsPage';
+import AIRehearsalPage from './components/AIRehearsalPage';
 import WhyThisSkillModal from './components/WhyThisSkillModal';
 import GenerateJobResumeModal from './components/GenerateJobResumeModal';
 import { useResume, BLANK_RESUME } from './contexts/ResumeContext';
@@ -204,6 +205,14 @@ const App: React.FC = () => {
               setActiveTab('builder');
             }}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
+          />
+        )}
+
+        {/* AI REHEARSAL */}
+        {activeTab === 'rehearsal' && (
+          <AIRehearsalPage
+            resumeData={activeResume || masterResume}
+            onNavigateToBuilder={() => setActiveTab('builder')}
           />
         )}
 

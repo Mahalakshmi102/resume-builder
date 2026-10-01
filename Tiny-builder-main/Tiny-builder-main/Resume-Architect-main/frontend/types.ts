@@ -154,3 +154,22 @@ export interface CareerMetrics {
   skillsNeedingEvidence: number;
   roleMatchesCount: number;
 }
+
+export interface InterviewQuestion {
+  id: string;
+  category: 'Project Deep Dive' | 'Technical Verification' | 'Behavioral (STAR)' | 'Resume Probe';
+  question: string;
+  context: string;
+  interviewerIntent: string;
+  suggestedTalkingPoints: string[];
+  sampleGoodAnswer?: string;
+  difficulty?: 'Entry' | 'Mid' | 'Senior';
+}
+
+export interface AnswerFeedback {
+  score: number;
+  verdict: 'Strong Hire' | 'Hire' | 'Needs Practice' | 'Weak Answer';
+  strengths: string[];
+  improvements: string[];
+  modelAnswer: string;
+}

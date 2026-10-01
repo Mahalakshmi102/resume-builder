@@ -4,7 +4,7 @@
 // With multi-model fallback and deterministic intelligent backup.
 // ============================================================
 import { GoogleGenAI, Type } from '@google/genai';
-import { ResumeData, EvidenceItem, AnalysisResult, JobDescriptionMatch, DetectedSkill } from '../types';
+import { ResumeData, EvidenceItem, AnalysisResult, JobDescriptionMatch, DetectedSkill, InterviewQuestion, AnswerFeedback } from '../types';
 
 const getClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -859,3 +859,250 @@ export const fallbackParseResumeText = (
 
   return { fullName, email: email || '', phone: phone || '', location: location || '', linkedin, website, summary, targetRole: targetRole || '', experience, education, skills: detectedSkills, projects, templateId: 'modern' };
 };
+
+// ============================================================
+// 7. AI Mock Interviewer — Generate Questions from Resume
+// ============================================================
+export const generateInterviewQuestions = async (
+  resumeData: ResumeData,
+  targetRole: string = '',
+  interviewType: string = 'mixed',
+  difficulty: string = 'mid'
+): Promise<InterviewQuestion[]> => {
+  const role = targetRole || resumeData.targetRole || 'Software Engineer';
+  const resumeSummary = `
+Candidate Name: ${resumeData.fullName || 'Candidate'}
+Target Role: ${role}
+Professional Summary: ${resumeData.summary || 'None'}
+Skills: ${(resumeData.skills || []).map((s) => s.name).join(', ') || 'Not specified'}
+Projects: ${(resumeData.projects || []).map((p) => `${p.title}: ${p.description}`).join(' | ') || 'None'}
+Experience: ${(resumeData.experience || []).map((e) => `${e.role} at ${e.company}: ${e.description}`).join(' | ') || 'None'}
+Education: ${(resumeData.education || []).map((ed) => `${ed.degree} from ${ed.institution}`).join(' | ') || 'None'}
+`.trim();
+
+  const prompt = `
+You are an elite Technical Hiring Manager and Senior Bar Raiser conducting an interview for the role: "${role}".
+You have the candidate's resume in front of you.
+
+CANDIDATE'S RESUME:
+${resumeSummary}
+
+INTERVIEW CONFIGURATION:
+- Difficulty Level: ${difficulty.toUpperCase()}
+- Focus Type: ${interviewType.toUpperCase()}
+
+TASK:
+Generate 6 to 8 realistic, probing interview questions that you would ask this candidate directly based on their resume.
+Do NOT ask generic, cliché textbook questions. Every question MUST reference a specific project, skill, tech stack, or accomplishment stated in their resume.
+
+Include questions from these categories:
+1. "Project Deep Dive": Challenge architectural decisions, state management, API design, scalability, edge cases, or database models in their listed projects.
+2. "Technical Verification": Test deep understanding of the key technologies/languages they claim expertise in (e.g. React lifecycle, TypeScript generics, async workflows, SQL queries, concurrency).
+3. "Behavioral (STAR)": Situational questions rooted in their experience (handling production bugs, balancing conflicting deadlines, cross-functional collaboration).
+4. "Resume Probe": Probing specific metrics, claims, or tools they highlighted to see if they genuinely wrote the code.
+
+Return STRICT JSON matching this schema:
+[
+  {
+    "id": "q-1",
+    "category": "Project Deep Dive",
+    "question": "The exact question you will ask the candidate verbally.",
+    "context": "Mention the exact resume line or project that triggered this question.",
+    "interviewerIntent": "What the interviewer is testing for.",
+    "suggestedTalkingPoints": [
+      "Point 1 to mention",
+      "Point 2 to mention",
+      "Point 3 to mention"
+    ],
+    "sampleGoodAnswer": "A high-scoring model response demonstrating how a senior candidate would answer.",
+    "difficulty": "Mid"
+  }
+]
+`.trim();
+
+  try {
+    const ai = getClient();
+    const jsonText = await generateWithModelFallback(ai, prompt, {
+      responseMimeType: 'application/json',
+    });
+    const parsed = JSON.parse(cleanJsonResponse(jsonText));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((q: any, idx: number) => ({
+        id: q.id || `q-${idx + 1}`,
+        category: q.category || 'Technical Verification',
+        question: q.question,
+        context: q.context || 'Based on your technical profile and resume highlights.',
+        interviewerIntent: q.interviewerIntent || 'Assessing candidate domain mastery and communication clarity.',
+        suggestedTalkingPoints: Array.isArray(q.suggestedTalkingPoints) ? q.suggestedTalkingPoints : ['Structure your answer using STAR or problem-solution format.'],
+        sampleGoodAnswer: q.sampleGoodAnswer,
+        difficulty: q.difficulty || (difficulty === 'senior' ? 'Senior' : difficulty === 'entry' ? 'Entry' : 'Mid'),
+      }));
+    }
+  } catch (error: any) {
+    console.warn('[Gemini] generateInterviewQuestions using fallback generator:', error.message);
+  }
+
+  // Fallback generator based on candidate's real skills & projects
+  return generateFallbackInterviewQuestions(resumeData, role, difficulty);
+};
+
+// ============================================================
+// 8. AI Mock Interviewer — Evaluate Candidate Answer
+// ============================================================
+export const evaluateInterviewAnswer = async (
+  question: string,
+  userAnswer: string,
+  resumeContext: string = '',
+  targetRole: string = ''
+): Promise<AnswerFeedback> => {
+  const prompt = `
+You are a senior engineering interviewer providing constructive mock interview evaluation.
+
+TARGET ROLE: ${targetRole || 'Software Engineer'}
+INTERVIEW QUESTION: "${question}"
+CONTEXT FROM RESUME: "${resumeContext}"
+CANDIDATE'S ANSWER:
+"${userAnswer}"
+
+Evaluate the candidate's answer constructively. Assess:
+1. Technical accuracy and depth.
+2. Structure (did they use STAR method for behavioral, or structured problem/solution for technical?).
+3. Specificity (did they give concrete examples or stay vague?).
+
+Return JSON:
+{
+  "score": 85,
+  "verdict": "Strong Hire",
+  "strengths": ["Clear explanation of asynchronous state management", "Quantified performance improvement"],
+  "improvements": ["Could address error handling edge cases", "Mention monitoring in production"],
+  "modelAnswer": "An exemplary, concise answer hitting all key technical and practical points."
+}
+`.trim();
+
+  try {
+    const ai = getClient();
+    const jsonText = await generateWithModelFallback(ai, prompt, {
+      responseMimeType: 'application/json',
+    });
+    const res = JSON.parse(cleanJsonResponse(jsonText));
+    return {
+      score: typeof res.score === 'number' ? res.score : 75,
+      verdict: res.verdict || 'Hire',
+      strengths: Array.isArray(res.strengths) ? res.strengths : ['Directly addressed the core concept of the question.'],
+      improvements: Array.isArray(res.improvements) ? res.improvements : ['Provide more measurable metrics and discuss trade-offs of alternatives.'],
+      modelAnswer: res.modelAnswer || 'A model response begins with the core concept, gives a concrete implementation example from recent projects, and concludes with lessons learned or performance impact.',
+    };
+  } catch (err: any) {
+    console.warn('[Gemini] evaluateInterviewAnswer using fallback:', err.message);
+    const wordCount = userAnswer.trim().split(/\s+/).length;
+    const score = Math.min(95, Math.max(50, wordCount * 2));
+    return {
+      score,
+      verdict: score >= 80 ? 'Hire' : 'Needs Practice',
+      strengths: ['Directly attempted to explain your practical approach.'],
+      improvements: ['Incorporate more specific technical metrics and explain architectural trade-offs.'],
+      modelAnswer: 'A strong candidate response begins with the core concept, gives a concrete implementation example from recent projects, and concludes with lessons learned or performance impact.',
+    };
+  }
+};
+
+// Fallback deterministic questions when Gemini API is offline
+const generateFallbackInterviewQuestions = (
+  resumeData: ResumeData,
+  role: string,
+  difficulty: string
+): InterviewQuestion[] => {
+  const questions: InterviewQuestion[] = [];
+  const primarySkills = (resumeData.skills || []).map((s) => s.name);
+  const primaryProjects = resumeData.projects || [];
+  const diffLevel = difficulty === 'senior' ? 'Senior' : difficulty === 'entry' ? 'Entry' : 'Mid';
+
+  // 1. Project Deep Dive
+  if (primaryProjects.length > 0) {
+    const p = primaryProjects[0];
+    questions.push({
+      id: 'q-proj-1',
+      category: 'Project Deep Dive',
+      question: `In your project "${p.title}", what was the most difficult architectural challenge you faced, and how did you resolve it?`,
+      context: `Referencing your project "${p.title}": ${p.description.substring(0, 100)}...`,
+      interviewerIntent: 'Testing whether you understand system bottlenecks, debugging strategy, and actual engineering ownership.',
+      suggestedTalkingPoints: [
+        'State the problem clearly (e.g. data latency, state synchronization, or integration issue)',
+        'Explain alternatives you evaluated and why you chose your solution',
+        'Quantify the final result or performance improvement',
+      ],
+      sampleGoodAnswer: `When architecting ${p.title}, the primary bottleneck was ensuring responsive data flow without blocking UI renders. I decoupled the heavy processing using asynchronous handlers and cached frequently queried state, which decreased response latency by over 40%.`,
+      difficulty: diffLevel as any,
+    });
+  }
+
+  // 2. Technical Verification
+  const topSkill = primarySkills[0] || (role.toLowerCase().includes('frontend') ? 'React' : 'TypeScript');
+  questions.push({
+    id: 'q-tech-1',
+    category: 'Technical Verification',
+    question: `You highlighted ${topSkill} as one of your core skills. Can you explain how you handle performance optimization and avoid common pitfalls when scaling applications with it?`,
+    context: `Referencing your listed skill: ${topSkill}`,
+    interviewerIntent: 'Separating surface-level syntax knowledge from deep production-ready engineering mastery.',
+    suggestedTalkingPoints: [
+      `Core architecture principles of ${topSkill}`,
+      'Memory management and preventing unnecessary computations/re-renders',
+      'Production debugging and profiling tooling',
+    ],
+    sampleGoodAnswer: `With ${topSkill}, my focus is on clean architectural boundaries, lazy loading modules, minimizing payload overhead, and using memoization selectively. I profile bottlenecks using browser devtools and automated bundle analyzers.`,
+    difficulty: diffLevel as any,
+  });
+
+  // 3. Technical Verification #2
+  const secondSkill = primarySkills[1] || 'REST APIs';
+  questions.push({
+    id: 'q-tech-2',
+    category: 'Technical Verification',
+    question: `How do you design and structure resilient API integrations and error recovery workflows using ${secondSkill}?`,
+    context: `Referencing technical skill: ${secondSkill}`,
+    interviewerIntent: 'Assessing your approach to fault tolerance, idempotency, and graceful user degradation.',
+    suggestedTalkingPoints: [
+      'Error classification (network vs validation vs server errors)',
+      'Retry policies with exponential backoff',
+      'Optimistic updates vs rollback mechanisms',
+    ],
+    sampleGoodAnswer: `I implement standardized error boundaries with typed responses, ensuring predictable fallbacks. For transient errors, exponential backoff with jitter prevents thundering herds, while optimistic updates maintain fluid UX with atomic rollbacks on failure.`,
+    difficulty: diffLevel as any,
+  });
+
+  // 4. Behavioral (STAR)
+  questions.push({
+    id: 'q-behav-1',
+    category: 'Behavioral (STAR)',
+    question: `Tell me about a time you encountered an ambiguous requirement or unexpected bug right before a critical delivery deadline. How did you prioritize?`,
+    context: `Evaluating delivery discipline and decision-making for a ${role}.`,
+    interviewerIntent: 'Evaluating composure under pressure, communication with stakeholders, and practical prioritization.',
+    suggestedTalkingPoints: [
+      'Situation: Brief context on the timeline and stakes',
+      'Task: What needed immediate triage vs what could wait',
+      'Action: Collaborative communication and technical fix',
+      'Result: Successful release and post-mortem mitigation',
+    ],
+    sampleGoodAnswer: `Two days before launch, an unhandled edge case surfaced in our authentication workflow. I immediately communicated the scope to the team lead, isolated the regression to an outdated token refresh handler, shipped a targeted patch with unit test coverage, and we delivered on schedule with zero production regressions.`,
+    difficulty: diffLevel as any,
+  });
+
+  // 5. Resume Probe
+  questions.push({
+    id: 'q-probe-1',
+    category: 'Resume Probe',
+    question: `Looking across your resume, what is the single engineering accomplishment you are most proud of, and what would you do differently if you built it today?`,
+    context: `Assessing self-awareness and technical growth from your resume.`,
+    interviewerIntent: 'Testing reflective capability, growth mindset, and technical maturity.',
+    suggestedTalkingPoints: [
+      'Choose a concrete project or feature',
+      'Highlight measurable success metrics',
+      'Demonstrate how your current technical wisdom would improve upon the past design',
+    ],
+    sampleGoodAnswer: `I am most proud of building an end-to-end prototype that solved a real workflow pain point. If building it today, I would invest earlier in automated integration testing and modular component contracts to accelerate feature iterations.`,
+    difficulty: diffLevel as any,
+  });
+
+  return questions;
+};
+

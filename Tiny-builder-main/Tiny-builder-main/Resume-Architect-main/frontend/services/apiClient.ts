@@ -190,3 +190,34 @@ export const saveResumeSessionAPI = async (
 export const loadResumeSessionAPI = async (sessionId: string): Promise<any> => {
   return apiCall(`/api/resume/${sessionId}`);
 };
+
+// ============================================================
+// AI — Mock Interview Questions from Resume
+// ============================================================
+export const getInterviewQuestionsAPI = async (
+  resumeData: any,
+  targetRole?: string,
+  interviewType?: string,
+  difficulty?: string
+): Promise<{ questions: any[] }> => {
+  return apiCall('/api/ai/interview-questions', {
+    method: 'POST',
+    body: JSON.stringify({ resumeData, targetRole, interviewType, difficulty }),
+  });
+};
+
+// ============================================================
+// AI — Evaluate Mock Interview Answer
+// ============================================================
+export const evaluateInterviewAnswerAPI = async (
+  question: string,
+  userAnswer: string,
+  resumeContext?: string,
+  targetRole?: string
+): Promise<any> => {
+  return apiCall('/api/ai/interview-feedback', {
+    method: 'POST',
+    body: JSON.stringify({ question, userAnswer, resumeContext, targetRole }),
+  });
+};
+
