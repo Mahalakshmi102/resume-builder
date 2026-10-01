@@ -60,14 +60,8 @@ export const enhanceSectionText = async (
     console.warn('[aiService] Direct Gemini failed, using local fallback:', err);
   }
 
-  // Final local fallback
-  if (context === 'summary') {
-    return `Results-driven software developer with hands-on expertise in React.js, JavaScript, and modern web architectures. Experienced in delivering evidence-backed, scalable frontend applications with measurable impact.`;
-  } else if (context === 'experience') {
-    return `Engineered high-performance React UI components, optimizing frontend render speed by 25%. Integrated RESTful API endpoints and implemented responsive, accessible layout standards.`;
-  } else {
-    return `Designed and deployed an evidence-backed web application using React and Supabase. Implemented real-time data sync, custom state management, and published full source code to GitHub.`;
-  }
+  // Final local fallback: return original text without inventing unverified claims
+  return text;
 };
 
 // ============================================================

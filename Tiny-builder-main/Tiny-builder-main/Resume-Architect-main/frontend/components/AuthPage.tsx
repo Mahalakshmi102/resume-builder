@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Target } from 'lucide-react';
+import { Target, Sparkles } from 'lucide-react';
 
 interface AuthPageProps {
   onLoginSuccess: () => void;
+  onContinueAsGuest?: () => void;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, onContinueAsGuest }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -25,8 +26,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
           password,
         });
         if (error) throw error;
-        // On success, we could auto login or inform user to check email.
-        // For simplicity, we just inform success if Supabase confirms.
         alert('Signed up successfully! You are now logged in.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -97,6 +96,17 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
             {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Log In')}
           </button>
         </form>
+
+        {onContinueAsGuest && (
+          <button
+            type="button"
+            onClick={onContinueAsGuest}
+            className="w-full mt-3 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition-colors border border-slate-200 flex items-center justify-center gap-1.5"
+          >
+            <Sparkles size={14} className="text-amber-500" />
+            Continue as Guest (Explore Demo Profile)
+          </button>
+        )}
 
         <div className="mt-6 text-center text-sm text-slate-600">
           {isSignUp ? 'Already have an account?' : "Don't have an account?"}

@@ -4,6 +4,14 @@ import { AnalysisResult } from "../types";
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
+const cleanJsonResponse = (raw: string): string => {
+  return raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+};
+
 export const enhanceText = async (text: string, context: 'summary' | 'experience' | 'project'): Promise<string> => {
   if (!text.trim()) return "";
   
@@ -73,7 +81,7 @@ export const analyzeResume = async (resumeText: string, jobDescription: string):
     const jsonText = response.text;
     if (!jsonText) throw new Error("No response from AI");
     
-    return JSON.parse(jsonText) as AnalysisResult;
+    return JSON.parse(cleanJsonResponse(jsonText)) as AnalysisResult;
 
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
@@ -114,7 +122,7 @@ export const generateTailoredResumeDirectly = async (
       }
     });
 
-    const parsed = JSON.parse(response.text || '{}');
+    const parsed = JSON.parse(cleanJsonResponse(response.text || '{}'));
     return {
       ...resumeData,
       targetRole,

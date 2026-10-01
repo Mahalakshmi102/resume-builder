@@ -23,7 +23,7 @@ const evidenceTypes: EvidenceType[] = [
 
 interface GitHubResult {
   isValid: boolean;
-  evidenceStatus: string;
+  evidenceStatus: EvidenceItem['status'];
   message: string;
   repoName?: string;
   language?: string;
@@ -38,7 +38,7 @@ const AddEvidenceModal: React.FC<AddEvidenceModalProps> = ({
   onSave,
   defaultSkill = '',
 }) => {
-  const [skill, setSkill] = useState(defaultSkill || 'React.js');
+  const [skill, setSkill] = useState(defaultSkill || '');
   const [type, setType] = useState<EvidenceType>('GitHub Project');
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
@@ -233,7 +233,7 @@ const AddEvidenceModal: React.FC<AddEvidenceModalProps> = ({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. ExamVerse GitHub Repo or Meta React Certificate"
+              placeholder="e.g. GitHub Project Repository or Professional Certificate"
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
             />
           </div>

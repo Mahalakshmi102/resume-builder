@@ -16,7 +16,7 @@ const WhyThisSkillModal: React.FC<WhyThisSkillModalProps> = ({
   onClose,
   resumeData,
   evidenceList,
-  targetRole = 'Frontend Developer',
+  targetRole = '',
 }) => {
   if (!skillName) return null;
 

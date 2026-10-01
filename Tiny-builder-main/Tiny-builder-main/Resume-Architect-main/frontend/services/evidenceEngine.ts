@@ -1,31 +1,41 @@
 import { EvidenceItem, SkillEvidenceMapping, ResumeClaim, CareerMetrics, ResumeData } from '../types';
+import { isResumeEmpty } from './resumeAnalyzer';
 
 export const calculateSkillEvidenceMapping = (
-  skills: { name: string }[],
-  projects: { title: string; description: string; link?: string; technologies?: string[] }[],
+  skills: { name: string }[] = [],
+  projects: { title: string; description: string; link?: string; technologies?: string[] }[] = [],
   certifications: { name: string; issuer: string }[] = [],
   evidenceList: EvidenceItem[] = []
 ): SkillEvidenceMapping[] => {
-  return skills.map((skillObj) => {
+  const safeSkills = skills || [];
+  const safeProjects = projects || [];
+  const safeCerts = certifications || [];
+  const safeEv = evidenceList || [];
+
+  if (safeSkills.length === 0) {
+    return [];
+  }
+
+  return safeSkills.map((skillObj) => {
     const skillName = skillObj.name;
     const lowerSkill = skillName.toLowerCase();
 
     // Find direct evidence matching this skill
-    const directEvidence = evidenceList.filter(
+    const directEvidence = safeEv.filter(
       (ev) => ev.skill.toLowerCase() === lowerSkill
     );
 
     // Find project mentions
-    const projectMentions = projects.filter((p) => {
-      const titleMatch = p.title.toLowerCase().includes(lowerSkill);
-      const descMatch = p.description.toLowerCase().includes(lowerSkill);
+    const projectMentions = safeProjects.filter((p) => {
+      const titleMatch = (p.title || '').toLowerCase().includes(lowerSkill);
+      const descMatch = (p.description || '').toLowerCase().includes(lowerSkill);
       const techMatch = p.technologies?.some((t) => t.toLowerCase() === lowerSkill);
       return titleMatch || descMatch || techMatch;
     });
 
     // Find cert mentions
-    const certMentions = certifications.filter((c) =>
-      c.name.toLowerCase().includes(lowerSkill)
+    const certMentions = safeCerts.filter((c) =>
+      (c.name || '').toLowerCase().includes(lowerSkill)
     );
 
     // Combine evidence items
@@ -66,13 +76,12 @@ export const calculateSkillEvidenceMapping = (
     } else if (combinedEvidence.length >= 1) {
       status = 'Supported';
     } else {
-      // Check if mentioned in resume
       status = 'Limited Evidence';
     }
 
     let whySupported = '';
     if (status === 'Strong Evidence') {
-      whySupported = `${skillName} is backed by multiple verified project repositories and practical evidence.`;
+      whySupported = `${skillName} is backed by project repository and practical evidence.`;
     } else if (status === 'Supported') {
       whySupported = `${skillName} appears in your projects or course certifications.`;
     } else if (status === 'Limited Evidence') {
@@ -91,26 +100,32 @@ export const calculateSkillEvidenceMapping = (
   });
 };
 
-export const verifyResumeClaims = (resumeData: ResumeData, evidenceList: EvidenceItem[]): ResumeClaim[] => {
+export const verifyResumeClaims = (resumeData: ResumeData, evidenceList: EvidenceItem[] = []): ResumeClaim[] => {
+  if (isResumeEmpty(resumeData)) {
+    return [];
+  }
+
   const claims: ResumeClaim[] = [];
+  const safeSkills = resumeData?.skills || [];
+  const safeProjects = resumeData?.projects || [];
 
   // Check Summary claim
-  if (resumeData.summary) {
+  if (resumeData?.summary) {
     if (resumeData.summary.toLowerCase().includes('expert') || resumeData.summary.toLowerCase().includes('master')) {
-      const matchedSkill = resumeData.skills.find((s) => s.level === 'Expert');
+      const matchedSkill = safeSkills.find((s) => s.level === 'Expert');
       claims.push({
         id: 'claim-1',
         claim: `Claim: Expert proficiency in ${matchedSkill?.name || 'technical domain'}`,
         evidenceFound: matchedSkill?.evidenceStatus === 'Strong Evidence' ? [`Verified ${matchedSkill.name} projects`] : [],
         evidenceMissing: ['No formal standardized assessment score', 'No peer code review badge'],
         status: matchedSkill?.evidenceStatus === 'Strong Evidence' ? 'Supported' : 'Limited Evidence',
-        suggestedWording: `Experienced with ${matchedSkill?.name || 'modern web technologies'} with project demonstration.`,
+        suggestedWording: `Experienced with ${matchedSkill?.name || 'core technical competencies'} with project demonstration.`,
       });
     }
   }
 
   // Check Project claims
-  resumeData.projects.forEach((proj, idx) => {
+  safeProjects.forEach((proj, idx) => {
     const hasGithub = proj.link && proj.link.includes('github.com');
     claims.push({
       id: `claim-proj-${idx}`,
@@ -127,60 +142,100 @@ export const verifyResumeClaims = (resumeData: ResumeData, evidenceList: Evidenc
   return claims;
 };
 
-export const getCareerMetrics = (resumeData: ResumeData, evidenceList: EvidenceItem[]): CareerMetrics => {
+export const getCareerMetrics = (resumeData: ResumeData, evidenceList: EvidenceItem[] = []): CareerMetrics => {
+  if (isResumeEmpty(resumeData)) {
+    return {
+      totalProjects: 0,
+      totalCertifications: 0,
+      totalAssessments: 0,
+      evidenceBackedSkills: 0,
+      skillsNeedingEvidence: 0,
+      roleMatchesCount: 0,
+    };
+  }
+
+  const safeProjects = resumeData?.projects || [];
+  const safeCerts = resumeData?.certifications || [];
+  const safeEv = evidenceList || [];
+
   const mappings = calculateSkillEvidenceMapping(
-    resumeData.skills,
-    resumeData.projects,
-    resumeData.certifications,
-    evidenceList
+    resumeData?.skills || [],
+    safeProjects,
+    safeCerts,
+    safeEv
   );
 
   const strongCount = mappings.filter((m) => m.status === 'Strong Evidence' || m.status === 'Supported').length;
   const needCount = mappings.filter((m) => m.status === 'Limited Evidence' || m.status === 'Missing').length;
 
+  // Calculate actual role match count if targetRole exists
+  let roleMatches = 0;
+  if (resumeData.targetRole && resumeData.skills && resumeData.skills.length > 0) {
+    const roleKws = resumeData.targetRole.toLowerCase().split(/[\s,/]+/).filter(Boolean);
+    roleMatches = mappings.filter((m) =>
+      roleKws.some((kw) => m.skill.toLowerCase().includes(kw))
+    ).length;
+  }
+
   return {
-    totalProjects: resumeData.projects.length,
-    totalCertifications: (resumeData.certifications || []).length,
-    totalAssessments: evidenceList.filter((e) => e.type === 'Assessment').length || 2,
+    totalProjects: safeProjects.length,
+    totalCertifications: safeCerts.length,
+    totalAssessments: safeEv.filter((e) => e.type === 'Assessment').length,
     evidenceBackedSkills: strongCount,
     skillsNeedingEvidence: needCount,
-    roleMatchesCount: 4,
+    roleMatchesCount: roleMatches,
   };
 };
 
 export const getWhyThisSkill = (
   skillName: string,
   resumeData: ResumeData,
-  evidenceList: EvidenceItem[],
-  targetRole: string = 'Frontend Developer'
+  evidenceList: EvidenceItem[] = [],
+  targetRole: string = ''
 ) => {
+  if (isResumeEmpty(resumeData) || !skillName) {
+    return {
+      skill: skillName || 'Skill',
+      evidenceFound: [],
+      reason: 'No resume uploaded yet.',
+      status: 'Missing',
+    };
+  }
+
   const mappings = calculateSkillEvidenceMapping(
-    resumeData.skills,
-    resumeData.projects,
-    resumeData.certifications,
-    evidenceList
+    resumeData?.skills || [],
+    resumeData?.projects || [],
+    resumeData?.certifications || [],
+    evidenceList || []
   );
 
   const mapping = mappings.find((m) => m.skill.toLowerCase() === skillName.toLowerCase());
 
   const evidenceFound: string[] = [];
-  if (mapping?.evidenceList.some((e) => e.type === 'GitHub Project' || e.type === 'Project')) {
-    evidenceFound.push('Project Evidence (ExamVerse / ResumeArchitect)');
+  const projectProof = mapping?.evidenceList
+    .filter((e) => e.type === 'GitHub Project' || e.type === 'Project')
+    .map((e) => e.title);
+
+  if (projectProof && projectProof.length > 0) {
+    evidenceFound.push(`Project Evidence (${projectProof.slice(0, 2).join(' / ')})`);
   }
   if (mapping?.evidenceList.some((e) => e.type === 'GitHub Project')) {
     evidenceFound.push('Public GitHub Repository');
   }
+  if (mapping?.evidenceList.some((e) => e.type === 'Certification')) {
+    evidenceFound.push('Course / Technical Certification');
+  }
   if (mapping?.resumeMention) {
     evidenceFound.push('Resume Skills Section Mention');
   }
-  if (targetRole.toLowerCase().includes('frontend') && ['react.js', 'react', 'javascript', 'html & css', 'html', 'css'].includes(skillName.toLowerCase())) {
-    evidenceFound.push('Target Job Description Core Requirement');
+  if (targetRole && mapping && targetRole.toLowerCase().includes(skillName.toLowerCase())) {
+    evidenceFound.push('Target Role Core Requirement');
   }
 
   return {
     skill: skillName,
     evidenceFound: evidenceFound.length > 0 ? evidenceFound : ['Resume Listed Skill'],
-    reason: mapping?.whySupported || `${skillName} aligns with your technical profile.`,
+    reason: mapping?.whySupported || `${skillName} is part of your resume skills profile.`,
     status: mapping?.status === 'Strong Evidence' || mapping?.status === 'Supported' ? 'Evidence Supported' : 'Limited Evidence',
   };
 };

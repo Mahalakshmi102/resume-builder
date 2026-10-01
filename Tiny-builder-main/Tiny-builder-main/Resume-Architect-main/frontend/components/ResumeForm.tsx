@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { ResumeData, Experience, Education, Skill, Project, Certification } from '../types';
-import { Plus, Trash2, Wand2, ChevronDown, ChevronUp, Layout, Award, Target } from 'lucide-react';
+import { Plus, Trash2, Wand2, ChevronDown, ChevronUp, Layout, Award, Target, Sparkles } from 'lucide-react';
 import { enhanceSectionText } from '../services/aiService';
 
 interface ResumeFormProps {
   data: ResumeData;
   onChange: (data: ResumeData) => void;
   onOpenEvidence?: (skillName?: string) => void;
+  onOpenJobModal?: () => void;
 }
 
-const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpenEvidence }) => {
+const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpenEvidence, onOpenJobModal }) => {
   // Guarantee arrays are defined to prevent mapping errors when AI returns missing fields
   const data = {
     ...rawData,
@@ -139,9 +140,12 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpen
     };
 
     return (
-      <button 
+      <div 
+        role="button"
+        tabIndex={0}
         onClick={() => toggleSection(id)}
-        className={`w-full flex items-center justify-between p-4 bg-white border-b hover:bg-slate-50 transition-colors ${!isVisible ? 'opacity-60 bg-slate-50' : ''}`}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(id); } }}
+        className={`w-full flex items-center justify-between p-4 bg-white border-b hover:bg-slate-50 transition-colors cursor-pointer select-none ${!isVisible ? 'opacity-60 bg-slate-50' : ''}`}
       >
         <div className="flex items-center gap-3">
           <span className={`font-semibold ${!isVisible ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{title}</span>
@@ -149,23 +153,48 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpen
         </div>
         <div className="flex items-center gap-3">
           {sectionKey && (
-            <div 
+            <button
+              type="button" 
               onClick={handleToggleVisibility}
               className={`p-1.5 rounded text-slate-400 hover:text-slate-700 transition-colors ${isVisible ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-emerald-50 hover:text-emerald-600'}`}
               title={isVisible ? "Hide section from resume" : "Show section on resume"}
             >
               {isVisible ? <Trash2 size={16} /> : <Plus size={16} />}
-            </div>
+            </button>
           )}
           {activeSection === id ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </div>
-      </button>
+      </div>
     );
   };
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-slate-100 border-r border-slate-200">
       
+      {/* AI Job Description Generator Banner */}
+      {onOpenJobModal && (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-3.5 m-2.5 rounded-2xl shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-white/20 rounded-xl shrink-0">
+                <Sparkles size={18} className="text-yellow-300" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-xs tracking-wide text-white">Generate from Job Description</h4>
+                <p className="text-[11px] text-blue-100 leading-tight">AI tailors skills, summary & projects to any job</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenJobModal}
+              className="px-3.5 py-1.5 bg-white text-blue-700 hover:bg-blue-50 font-bold text-xs rounded-xl shadow-xs transition-all shrink-0 cursor-pointer"
+            >
+              Generate
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Template Selection */}
       <div className="bg-white mb-2 shadow-sm p-4">
         <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">

@@ -62,7 +62,7 @@ router.post('/enhance', async (req: Request, res: Response) => {
     }
 
     const enhancedText = await enhanceText(text, context);
-    return res.json({ enhancedText });
+    return res.json({ enhancedText, enhanced: enhancedText });
   } catch (error: any) {
     console.error('[POST /ai/enhance]', error.message);
     return res.status(500).json({ error: error.message });
@@ -141,7 +141,7 @@ router.post('/generate-resume', async (req: Request, res: Response) => {
       jobDescription
     );
 
-    return res.json({ resumeData: tailoredResume });
+    return res.json({ resumeData: tailoredResume, ...tailoredResume });
   } catch (error: any) {
     console.error('[POST /ai/generate-resume]', error.message);
     return res.status(500).json({ error: error.message });

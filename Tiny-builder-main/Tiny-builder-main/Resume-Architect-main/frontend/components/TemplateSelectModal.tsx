@@ -127,7 +127,7 @@ const TemplateSelectModal: React.FC<TemplateSelectModalProps> = ({
                   marginBottom: '-280px',
                 }}
               >
-                <ResumePreview data={previewResume} />
+                <ResumePreview data={previewResume} id="modal-resume-preview" />
               </div>
             </div>
           </div>

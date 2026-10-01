@@ -6,9 +6,17 @@ interface ResumePreviewProps {
   data: ResumeData;
   scale?: number;
   onSkillClick?: (skillName: string) => void;
+  isPrintView?: boolean;
+  id?: string;
 }
 
-const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1, onSkillClick }) => {
+const ResumePreview: React.FC<ResumePreviewProps> = ({
+  data: rawData,
+  scale = 1,
+  onSkillClick,
+  isPrintView = false,
+  id,
+}) => {
   // Ensure array fields are never undefined to prevent crash during rendering
   const data = {
     ...rawData,
@@ -21,8 +29,19 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr + '-01');
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const trimmed = dateStr.trim();
+    if (trimmed.toLowerCase() === 'present' || trimmed.toLowerCase() === 'current') return 'Present';
+    if (/^\d{4}$/.test(trimmed)) return trimmed;
+    if (/^\d{4}-\d{2}$/.test(trimmed)) {
+      const [year, month] = trimmed.split('-');
+      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      return !isNaN(d.getTime()) ? d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : trimmed;
+    }
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+    return trimmed;
   };
 
   const ContactItem = ({ icon: Icon, text, link }: { icon: any, text: string, link?: string }) => {
@@ -43,11 +62,11 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
             {/* Header with rounded corner gradient banner */}
             <header className="relative bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white p-8 rounded-2xl shadow-md mb-8 overflow-hidden">
               <div className="absolute right-0 bottom-0 opacity-10 font-bold text-9xl select-none translate-x-12 translate-y-12">
-                {data.fullName ? data.fullName.charAt(0) : 'R'}
+                {data.fullName ? data.fullName.charAt(0) : ''}
               </div>
               <div className="relative z-10 font-sans">
-                <h1 className="text-4xl font-extrabold tracking-tight mb-2 uppercase">{data.fullName || 'YOUR NAME'}</h1>
-                <div className="text-lg text-purple-100 font-light tracking-wide mb-6">{data.experience[0]?.role || 'Professional'}</div>
+                <h1 className="text-4xl font-extrabold tracking-tight mb-2 uppercase">{data.fullName}</h1>
+                <div className="text-lg text-purple-100 font-light tracking-wide mb-6">{data.experience[0]?.role || ''}</div>
                 <div className="flex flex-wrap gap-4 text-xs bg-black/15 p-3 rounded-lg backdrop-blur-sm max-w-max border border-white/10">
                   {data.email && <ContactItem icon={Mail} text={data.email} />}
                   {data.phone && <ContactItem icon={Phone} text={data.phone} />}
@@ -123,7 +142,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                     </h2>
                     <div className="flex flex-wrap gap-2">
                       {data.skills.map(skill => (
-                        <span key={skill.id} className="px-3 py-1 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 text-xs font-medium rounded-lg border border-indigo-100/50">
+                        <span
+                          key={skill.id}
+                          onClick={() => onSkillClick?.(skill.name)}
+                          className={`px-3 py-1 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 text-xs font-medium rounded-lg border border-indigo-100/50 ${onSkillClick ? 'cursor-pointer hover:border-indigo-300 hover:shadow-xs transition-all' : ''}`}
+                          title={onSkillClick ? `Click to see evidence for ${skill.name}` : undefined}
+                        >
                           {skill.name}
                         </span>
                       ))}
@@ -162,15 +186,15 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                 <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
                 <span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
               </div>
-              <div className="text-xs text-slate-400 font-medium">bash - {(data.fullName || 'resume').toLowerCase().replace(/\s+/g, '_')}.sh</div>
+              <div className="text-xs text-slate-400 font-medium">{data.fullName ? `bash - ${data.fullName.toLowerCase().replace(/\s+/g, '_')}.sh` : ''}</div>
               <div className="w-12"></div>
             </header>
 
             <div className="px-2 space-y-6">
               {/* Terminal Greeting & Bio */}
               <div>
-                <div className="text-emerald-400 font-bold mb-1">guest@resume-arch:~$ <span className="text-white">whoami</span></div>
-                <h1 className="text-3xl font-extrabold text-white uppercase mb-2 tracking-tight">{data.fullName || 'GUEST_USER'}</h1>
+                <div className="text-emerald-400 font-bold mb-1">user@resume-arch:~$ <span className="text-white">whoami</span></div>
+                <h1 className="text-3xl font-extrabold text-white uppercase mb-2 tracking-tight">{data.fullName}</h1>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400 mt-3 border border-slate-800 p-3 rounded-md bg-slate-900/50">
                   {data.email && <div><span className="text-cyan-400">email:</span> {data.email}</div>}
@@ -233,7 +257,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                         <span className="text-cyan-400">"competencies"</span>: [
                         <div className="pl-4 flex flex-wrap gap-x-2 gap-y-1">
                           {data.skills.map((skill, idx) => (
-                            <span key={skill.id} className="text-yellow-300">
+                            <span
+                              key={skill.id}
+                              onClick={() => onSkillClick?.(skill.name)}
+                              className={`text-yellow-300 ${onSkillClick ? 'cursor-pointer hover:underline hover:text-yellow-200 transition-all' : ''}`}
+                              title={onSkillClick ? `Click to see evidence for ${skill.name}` : undefined}
+                            >
                               "{skill.name}"{idx < data.skills.length - 1 ? ',' : ''}
                             </span>
                           ))}
@@ -268,7 +297,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
         return (
           <div className="p-8 font-serif text-slate-900">
             <header className="border-b-2 border-slate-900 pb-4 mb-6 text-center">
-              <h1 className="text-3xl font-bold uppercase tracking-widest mb-3">{data.fullName || 'YOUR NAME'}</h1>
+              <h1 className="text-3xl font-bold uppercase tracking-widest mb-3">{data.fullName}</h1>
               <div className="flex flex-wrap justify-center gap-4 text-slate-700 text-sm">
                 <span>{data.location}</span>
                 {data.location && data.email && <span>•</span>}
@@ -338,8 +367,19 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
              {data.skills.length > 0 && data.sections?.skills !== false && (
               <section>
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Skills</h2>
-                <div className="text-sm leading-relaxed">
-                  {data.skills.map(s => s.name).join(' • ')}
+                <div className="text-sm leading-relaxed flex flex-wrap gap-x-2 gap-y-1">
+                  {data.skills.map((s, idx) => (
+                    <span key={s.id} className="inline-flex items-center">
+                      <span
+                        onClick={() => onSkillClick?.(s.name)}
+                        className={onSkillClick ? 'cursor-pointer hover:text-blue-600 hover:underline transition-colors' : ''}
+                        title={onSkillClick ? `Click to see evidence for ${s.name}` : undefined}
+                      >
+                        {s.name}
+                      </span>
+                      {idx < data.skills.length - 1 && <span className="ml-2 text-slate-400">•</span>}
+                    </span>
+                  ))}
                 </div>
               </section>
             )}
@@ -350,7 +390,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
         return (
           <div className="p-10 font-sans text-slate-800">
              <header className="text-center mb-10">
-              <h1 className="text-4xl font-light tracking-tight mb-4">{data.fullName || 'Your Name'}</h1>
+              <h1 className="text-4xl font-light tracking-tight mb-4">{data.fullName}</h1>
               <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-500 font-light">
                 {data.email && <span>{data.email}</span>}
                 {data.phone && <span>{data.phone}</span>}
@@ -418,7 +458,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                     <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 text-center">Skills</h2>
                     <div className="flex flex-wrap justify-center gap-2">
                       {data.skills.map(skill => (
-                        <span key={skill.id} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded">{skill.name}</span>
+                        <span
+                          key={skill.id}
+                          onClick={() => onSkillClick?.(skill.name)}
+                          className={`px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded ${onSkillClick ? 'cursor-pointer hover:bg-indigo-50 hover:text-indigo-700 transition-colors' : ''}`}
+                          title={onSkillClick ? `Click to see evidence for ${skill.name}` : undefined}
+                        >
+                          {skill.name}
+                        </span>
                       ))}
                     </div>
                   </section>
@@ -435,7 +482,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
             <div className="w-1/3 bg-slate-900 text-white p-6 pt-10 flex flex-col gap-8">
               <div className="text-center">
                  <div className="w-24 h-24 bg-slate-700 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-bold">
-                    {data.fullName ? data.fullName.charAt(0) : 'Me'}
+                    {data.fullName ? data.fullName.charAt(0) : ''}
                  </div>
                  <h1 className="text-xl font-bold uppercase tracking-wide mb-4">{data.fullName}</h1>
               </div>
@@ -466,7 +513,14 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-700 pb-1">Skills</h3>
                    <div className="flex flex-wrap gap-2">
                      {data.skills.map(s => (
-                       <span key={s.id} className="px-2 py-1 bg-slate-800 text-xs rounded text-slate-300">{s.name}</span>
+                       <span
+                         key={s.id}
+                         onClick={() => onSkillClick?.(s.name)}
+                         className={`px-2 py-1 bg-slate-800 text-xs rounded text-slate-300 ${onSkillClick ? 'cursor-pointer hover:bg-slate-700 hover:text-white transition-colors' : ''}`}
+                         title={onSkillClick ? `Click to see evidence for ${s.name}` : undefined}
+                       >
+                         {s.name}
+                       </span>
                      ))}
                    </div>
                 </div>
@@ -527,8 +581,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
           <div className="p-10 font-sans text-slate-900">
             <header className="flex justify-between items-end border-b-4 border-slate-800 pb-6 mb-8">
               <div>
-                <h1 className="text-5xl font-extrabold uppercase tracking-tighter mb-2">{data.fullName || 'YOUR NAME'}</h1>
-                <div className="text-xl text-slate-600 font-light">{data.experience[0]?.role || 'Professional Title'}</div>
+                <h1 className="text-5xl font-extrabold uppercase tracking-tighter mb-2">{data.fullName}</h1>
+                <div className="text-xl text-slate-600 font-light">{data.experience[0]?.role || ''}</div>
               </div>
               <div className="text-right text-sm space-y-1 text-slate-600">
                 <div>{data.email}</div>
@@ -599,7 +653,12 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Core Competencies</h2>
                       <div className="flex flex-col gap-2">
                         {data.skills.map(s => (
-                           <div key={s.id} className="flex justify-between items-center border-b border-slate-100 pb-1">
+                           <div
+                             key={s.id}
+                             onClick={() => onSkillClick?.(s.name)}
+                             className={`flex justify-between items-center border-b border-slate-100 pb-1 ${onSkillClick ? 'cursor-pointer hover:bg-slate-50 rounded px-1 transition-colors' : ''}`}
+                             title={onSkillClick ? `Click to see evidence for ${s.name}` : undefined}
+                           >
                              <span className="text-sm font-medium text-slate-700">{s.name}</span>
                              {s.level === 'Expert' && <div className="w-2 h-2 bg-slate-800 rounded-full"></div>}
                              {s.level === 'Intermediate' && <div className="w-2 h-2 bg-slate-400 rounded-full"></div>}
@@ -619,7 +678,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
         return (
           <div className="p-8 text-slate-800 font-sans">
              <header className="border-b-2 border-primary pb-4 mb-6">
-              <h1 className="text-4xl font-bold uppercase tracking-wider text-slate-900 mb-2">{data.fullName || 'Your Name'}</h1>
+              <h1 className="text-4xl font-bold uppercase tracking-wider text-slate-900 mb-2">{data.fullName}</h1>
               <div className="flex flex-wrap gap-4 text-sm text-slate-600 mt-3">
                 <ContactItem icon={Mail} text={data.email} />
                 <ContactItem icon={Phone} text={data.phone} />
@@ -699,7 +758,13 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
                   <div className="flex flex-wrap gap-x-6 gap-y-2">
                     {data.skills.map(skill => (
                       <div key={skill.id} className="text-sm text-slate-700 relative pl-4 before:content-['•'] before:absolute before:left-0 before:text-primary">
-                        <span className="font-medium">{skill.name}</span>
+                        <span
+                          onClick={() => onSkillClick?.(skill.name)}
+                          className={`font-medium ${onSkillClick ? 'cursor-pointer hover:text-primary hover:underline transition-colors' : ''}`}
+                          title={onSkillClick ? `Click to see evidence for ${skill.name}` : undefined}
+                        >
+                          {skill.name}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -713,18 +778,35 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data: rawData, scale = 1,
 
   const isDarkTheme = data.templateId === 'developer';
 
+  if (isPrintView) {
+    return (
+      <div 
+        id={id || "resume-preview-print"}
+        className={`print-area ${isDarkTheme ? 'bg-slate-950 text-slate-300' : 'bg-white text-slate-800'}`}
+        style={{
+          width: '210mm',
+          minHeight: '297mm',
+          boxSizing: 'border-box',
+          margin: '0 auto',
+        }}
+      >
+        {renderTemplate()}
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-center p-4 bg-slate-200 h-full overflow-y-auto no-print">
       <div 
-        id="resume-preview"
-        className={`shadow-lg print-area ${isDarkTheme ? 'bg-slate-950 text-slate-300' : 'bg-white text-slate-800'}`}
+        id={id || "resume-preview"}
+        className={`shadow-lg ${isDarkTheme ? 'bg-slate-950 text-slate-300' : 'bg-white text-slate-800'}`}
         style={{
           width: '210mm',
           minHeight: '297mm',
           transform: `scale(${scale})`,
           transformOrigin: 'top center',
           boxSizing: 'border-box',
-          overflow: 'hidden' // Ensure content doesn't spill out visually in preview
+          overflow: 'hidden'
         }}
       >
         {renderTemplate()}

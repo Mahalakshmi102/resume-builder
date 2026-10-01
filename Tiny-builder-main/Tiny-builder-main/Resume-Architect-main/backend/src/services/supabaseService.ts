@@ -39,19 +39,29 @@ const memoryEvidenceStore: Map<string, EvidenceItem> = new Map();
 
 // Helper to provide SQL schema snippet if tables don't exist yet
 export const SUPABASE_SQL_SCHEMA = `
--- Run this in your Supabase SQL Editor if not already created:
+-- Run this in your Supabase SQL Editor to create or migrate tables:
 
+-- Resumes table (supports master + tailored versions per user)
 CREATE TABLE IF NOT EXISTS resumes (
-  id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   target_role TEXT,
+  is_master BOOLEAN DEFAULT TRUE,
   data JSONB NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- If upgrading from old schema (id TEXT), run these migrations:
+-- ALTER TABLE resumes ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+-- ALTER TABLE resumes ADD COLUMN IF NOT EXISTS is_master BOOLEAN DEFAULT TRUE;
+-- CREATE INDEX IF NOT EXISTS resumes_user_id_idx ON resumes(user_id);
+
+-- Evidence table (per-user evidence items)
 CREATE TABLE IF NOT EXISTS evidence (
-  id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   skill TEXT NOT NULL,
   type TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -61,6 +71,16 @@ CREATE TABLE IF NOT EXISTS evidence (
   status TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- If upgrading from old schema:
+-- ALTER TABLE evidence ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+-- CREATE INDEX IF NOT EXISTS evidence_user_id_idx ON evidence(user_id);
+
+-- Enable Row Level Security (recommended)
+-- ALTER TABLE resumes ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE evidence ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Users own their resumes" ON resumes USING (auth.uid() = user_id);
+-- CREATE POLICY "Users own their evidence" ON evidence USING (auth.uid() = user_id);
 `.trim();
 
 // ============================================================
@@ -80,7 +100,7 @@ export const saveResume = async (
         .upsert({
           id: sessionId,
           full_name: resumeData.fullName,
-          target_role: resumeData.targetRole || 'Software Engineer',
+          target_role: resumeData.targetRole || '',
           data: resumeData,
           updated_at: now,
         }, { onConflict: 'id' });

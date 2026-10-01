@@ -8,9 +8,9 @@ interface BeforeAfterCardProps {
 }
 
 const BeforeAfterCard: React.FC<BeforeAfterCardProps> = ({
-  beforeText = 'Developed a quiz website using React.',
-  afterText = 'Developed a React-based competitive quiz platform with Supabase integration, real-time multiplayer functionality, and automated score tracking.',
-  skillName = 'ExamVerse Project',
+  beforeText = 'Built application features with modern web stack.',
+  afterText = 'Engineered scalable production modules with measurable optimization and clean architecture.',
+  skillName = 'Project Statement',
 }) => {
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs hover:shadow-md transition-shadow space-y-4">

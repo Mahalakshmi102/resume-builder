@@ -51,11 +51,11 @@ export const enhanceTextAPI = async (
   text: string,
   context: 'summary' | 'experience' | 'project'
 ): Promise<string> => {
-  const result = await apiCall<{ enhanced: string }>('/api/ai/enhance', {
+  const result = await apiCall<{ enhanced?: string; enhancedText?: string }>('/api/ai/enhance', {
     method: 'POST',
     body: JSON.stringify({ text, context }),
   });
-  return result.enhanced;
+  return result.enhancedText || result.enhanced || '';
 };
 
 // ============================================================
@@ -95,10 +95,11 @@ export const generateRoleResumeAPI = async (
   targetRole: string,
   jobDescription: string
 ): Promise<any> => {
-  return apiCall('/api/ai/generate-resume', {
+  const result = await apiCall<{ resumeData?: any; [key: string]: any }>('/api/ai/generate-resume', {
     method: 'POST',
     body: JSON.stringify({ resumeData, targetRole, jobDescription }),
   });
+  return result.resumeData || result;
 };
 
 // ============================================================

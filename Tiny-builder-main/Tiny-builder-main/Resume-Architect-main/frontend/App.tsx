@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { ResumeData, EvidenceItem } from './types';
-import Navbar, { NavTab } from './components/Navbar';
+import React, { useState } from 'react';
+import { NavTab } from './components/Navbar';
+import Navbar from './components/Navbar';
 import ResumeForm from './components/ResumeForm';
 import ResumePreview from './components/ResumePreview';
 import AIAnalyzer from './components/AIAnalyzer';
@@ -8,225 +8,246 @@ import JobMatcher from './components/JobMatcher';
 import EvidencePage from './components/EvidencePage';
 import ReportsPage from './components/ReportsPage';
 import WhyThisSkillModal from './components/WhyThisSkillModal';
-import { demoResumeData, demoEvidenceList } from './services/demoData';
-import { loadResumeSessionAPI, saveResumeSessionAPI } from './services/apiClient';
-import { useAuth } from './contexts/AuthContext';
+import GenerateJobResumeModal from './components/GenerateJobResumeModal';
+import { useResume, BLANK_RESUME } from './contexts/ResumeContext';
+import { ResumeData } from './types';
+import { isResumeEmpty } from './services/resumeAnalyzer';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('builder');
-  const [resumeData, setResumeData] = useState<ResumeData | null>(null);
-  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([]);
   const [whySkillModalName, setWhySkillModalName] = useState<string | null>(null);
-  const { session } = useAuth();
+  const [showJobModal, setShowJobModal] = useState(false);
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      loadResumeSessionAPI(session.user.id)
-        .then((data: any) => {
-          if (data && data.resumeData) {
-             setResumeData(data.resumeData);
-             setEvidenceList(data.evidenceList || []);
-          } else {
-             // If no resume is found in backend, use a blank one instead of demo data
-             setResumeData({ ...demoResumeData, fullName: '', summary: '', experience: [], projects: [], education: [], skills: [] });
-             setActiveTab('analyzer'); // Redirect to analyzer to upload PDF
-          }
-        })
-        .catch(() => {
-          // On error, start fresh
-          setResumeData({ ...demoResumeData, fullName: '', summary: '', experience: [], projects: [], education: [], skills: [] });
-          setActiveTab('analyzer');
-        });
-    }
-  }, [session]);
+  const {
+    masterResume,
+    tailoredResume,
+    activeResume,
+    evidenceList,
+    isSaving,
+    isLoading,
+    lastSavedAt,
+    saveError,
+    hasLoadedOnce,
+    setMasterResume,
+    setTailoredResume,
+    addEvidence,
+    saveNow,
+    discardTailored,
+    applyTailoredAsMaster,
+    clearResume,
+  } = useResume();
 
-  const handleSaveToCloud = async () => {
-    if (!session?.user?.id || !resumeData) return;
-    try {
-      await saveResumeSessionAPI(resumeData, session.user.id);
-      alert('Resume saved to cloud successfully!');
-    } catch (err: any) {
-      alert('Failed to save resume: ' + err.message);
-    }
-  };
-
-  if (!resumeData) {
-    return <div className="h-screen flex items-center justify-center">Loading your resume...</div>;
+  // ── Initial loading skeleton while reading state ────────────
+  if (isLoading || !hasLoadedOnce) {
+    return (
+      <div className="h-screen flex flex-col bg-slate-50">
+        <div className="h-16 bg-white border-b border-slate-200 flex items-center px-6 gap-4 animate-pulse">
+          <div className="w-8 h-8 bg-slate-200 rounded-xl" />
+          <div className="w-36 h-5 bg-slate-200 rounded-lg" />
+          <div className="flex-1" />
+          <div className="w-24 h-8 bg-slate-200 rounded-lg" />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm font-semibold text-slate-400">Loading ResumeArchitect…</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  const handleLoadDemoProfile = () => {
-    setResumeData(demoResumeData);
-    setEvidenceList(demoEvidenceList);
-  };
-
-  const handleAddEvidence = (item: EvidenceItem) => {
-    setEvidenceList((prev) => [item, ...prev]);
-  };
-
-  const handleApplyRoleBasedResume = (updated: ResumeData) => {
-    setResumeData(updated);
-    setActiveTab('builder');
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
+  // ── PDF export ──────────────────────────────────────────────
   const downloadPDF = () => {
     const element = document.getElementById('resume-preview');
     if (!element) return;
-
+    if (typeof (window as any).html2pdf !== 'function') {
+      window.print();
+      return;
+    }
     const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.transform = 'none';
-    clone.style.boxShadow = 'none';
-    clone.style.margin = '0';
-    clone.style.padding = '0';
-    clone.style.width = '210mm';
-    clone.style.minHeight = '297mm';
-
+    clone.style.cssText = 'transform:none;box-shadow:none;margin:0;padding:0;width:210mm;min-height:297mm;';
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '-9999px';
+    container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
     container.appendChild(clone);
     document.body.appendChild(container);
-
-    const filename = `${resumeData.fullName.trim().replace(/\s+/g, '_') || 'resume'}_resume.pdf`;
-    const opt = {
-      margin: 0,
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    };
-
-    // @ts-ignore
-    window.html2pdf().from(clone).set(opt).save().then(() => {
-      document.body.removeChild(container);
-    }).catch((err: any) => {
-      console.error('PDF export error:', err);
-      document.body.removeChild(container);
-    });
+    const safeName = ((activeResume || masterResume).fullName || 'resume').replace(/\s+/g, '_');
+    const suffix = tailoredResume ? `_${(tailoredResume.targetRole || 'tailored').replace(/\s+/g, '_')}` : '';
+    try {
+      (window as any).html2pdf().from(clone).set({
+        margin: 0,
+        filename: `${safeName}${suffix}_resume.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      }).save().then(() => {
+        if (document.body.contains(container)) document.body.removeChild(container);
+      }).catch(() => {
+        if (document.body.contains(container)) document.body.removeChild(container);
+        window.print();
+      });
+    } catch {
+      if (document.body.contains(container)) document.body.removeChild(container);
+      window.print();
+    }
   };
 
+  // ── Word export ─────────────────────────────────────────────
   const downloadWord = () => {
-    const styles = Array.from(document.querySelectorAll('style'))
-      .map((style) => style.innerHTML)
-      .join('\n');
-
-    const header =
-      "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
-      "xmlns:w='urn:schemas-microsoft-com:office:word' " +
-      "xmlns='http://www.w3.org/TR/REC-html40'>" +
-      '<head><meta charset="utf-8"><title>Resume</title><style>' +
-      styles +
-      "\nbody { font-family: 'Inter', Arial, sans-serif; }\n" +
-      '@page { size: A4; margin: 1.5cm 1.5cm 1.5cm 1.5cm; }\n' +
-      '</style></head><body>';
-    const footer = '</body></html>';
-    const previewEl = document.getElementById('resume-preview');
-    const sourceHTML = header + (previewEl ? previewEl.innerHTML : '') + footer;
-
-    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
-    const fileDownload = document.createElement('a');
-    document.body.appendChild(fileDownload);
-    fileDownload.href = source;
-    fileDownload.download = `${resumeData.fullName.trim().replace(/\s+/g, '_') || 'resume'}_resume.doc`;
-    fileDownload.click();
-    document.body.removeChild(fileDownload);
+    const styles = Array.from(document.querySelectorAll('style')).map((s) => s.innerHTML).join('\n');
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset="utf-8"><title>Resume</title><style>${styles}\nbody{font-family:'Inter',Arial,sans-serif;}\n@page{size:A4;margin:1.5cm;}\n</style></head><body>`;
+    const el = document.getElementById('resume-preview');
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(header + (el?.innerHTML || '') + '</body></html>');
+    const a = document.createElement('a');
+    document.body.appendChild(a);
+    a.href = source;
+    a.download = `${((activeResume || masterResume).fullName || 'resume').replace(/\s+/g, '_')}_resume.doc`;
+    a.click();
+    document.body.removeChild(a);
   };
+
+  const handleBuilderChange = (data: ResumeData) => setMasterResume(data);
 
   return (
     <div className="h-full flex flex-col bg-slate-100 text-slate-900 font-sans">
-      {/* Top Navbar */}
+
+      {/* Navbar */}
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onLoadDemo={handleLoadDemoProfile}
+        onUploadResume={(parsed) => setMasterResume(parsed)}
+        onClearResume={clearResume}
         onDownloadWord={downloadWord}
         onDownloadPDF={downloadPDF}
-        onPrint={handlePrint}
-        onSave={handleSaveToCloud}
-        activeProfileName={resumeData.fullName}
+        onPrint={() => window.print()}
+        onSave={saveNow}
+        onOpenGenerateJobModal={() => setShowJobModal(true)}
+        activeProfileName={(activeResume || masterResume).fullName}
+        isSaving={isSaving}
+        hasTailored={!!tailoredResume}
+        onDiscardTailored={discardTailored}
+        onApplyTailoredAsMaster={applyTailoredAsMaster}
       />
 
-      {/* Main Content Area */}
+      {/* Tailored Resume Banner */}
+      {tailoredResume && (
+        <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between no-print shadow-sm">
+          <span>
+            📋 Viewing tailored resume for <strong>{tailoredResume.targetRole || 'target role'}</strong>
+            {' '}— your Master Resume is preserved.
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={applyTailoredAsMaster}
+              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors cursor-pointer"
+            >
+              Set as Master
+            </button>
+            <button
+              onClick={discardTailored}
+              className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+            >
+              Discard ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
       <main className="flex-1 overflow-hidden relative">
+
+        {/* BUILDER */}
         {activeTab === 'builder' && (
           <div className="flex h-full">
-            {/* Left: Form Input */}
             <div className="w-full md:w-1/2 lg:w-5/12 h-full z-10 no-print overflow-y-auto border-r border-slate-200">
               <ResumeForm
-                data={resumeData}
-                onChange={setResumeData}
-                onOpenEvidence={(skill) => setWhySkillModalName(skill || 'React.js')}
+                data={masterResume}
+                onChange={handleBuilderChange}
+                onOpenEvidence={(skill) => setWhySkillModalName(skill || '')}
+                onOpenJobModal={() => setShowJobModal(true)}
               />
             </div>
-
-            {/* Right: Live Preview */}
             <div className="hidden md:block w-1/2 lg:w-7/12 h-full bg-slate-200 relative overflow-hidden">
               <div className="absolute inset-0">
                 <ResumePreview
-                  data={resumeData}
+                  data={tailoredResume || masterResume}
                   onSkillClick={(skill) => setWhySkillModalName(skill)}
                 />
               </div>
             </div>
-
-            {/* Print-only View */}
             <div className="hidden print-area">
-              <ResumePreview data={resumeData} />
+              <ResumePreview data={tailoredResume || masterResume} isPrintView />
             </div>
           </div>
         )}
 
+        {/* AI ANALYZER */}
         {activeTab === 'analyzer' && (
           <AIAnalyzer
-            resumeData={resumeData}
+            resumeData={masterResume}
             evidenceList={evidenceList}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
             onNavigateToJobMatcher={() => setActiveTab('matcher')}
             onNavigateToEvidence={() => setActiveTab('evidence')}
-            onUpdateResume={(newResume) => setResumeData(newResume)}
+            onUpdateResume={(newResume) => setMasterResume(newResume)}
             onNavigateToBuilder={() => setActiveTab('builder')}
           />
         )}
 
+        {/* JOB MATCHER */}
         {activeTab === 'matcher' && (
           <JobMatcher
-            resumeData={resumeData}
+            resumeData={masterResume}
             evidenceList={evidenceList}
-            onApplyRoleBasedResume={handleApplyRoleBasedResume}
+            onApplyRoleBasedResume={(tailored) => {
+              setTailoredResume(tailored);
+              setActiveTab('builder');
+            }}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
           />
         )}
 
+        {/* EVIDENCE */}
         {activeTab === 'evidence' && (
           <EvidencePage
-            resumeData={resumeData}
+            resumeData={masterResume}
             evidenceList={evidenceList}
-            onAddEvidence={handleAddEvidence}
+            onAddEvidence={addEvidence}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
           />
         )}
 
+        {/* REPORTS */}
         {activeTab === 'reports' && (
           <ReportsPage
-            resumeData={resumeData}
+            resumeData={masterResume}
+            tailoredResume={tailoredResume}
             evidenceList={evidenceList}
             onNavigateToBuilder={() => setActiveTab('builder')}
             onNavigateToEvidence={() => setActiveTab('evidence')}
+            onNavigateToMatcher={() => setActiveTab('matcher')}
           />
         )}
       </main>
 
-      {/* Explainable Resume Modal */}
+      {/* Why This Skill Modal */}
       <WhyThisSkillModal
         skillName={whySkillModalName}
         onClose={() => setWhySkillModalName(null)}
-        resumeData={resumeData}
+        resumeData={activeResume || masterResume}
         evidenceList={evidenceList}
-        targetRole={resumeData.targetRole || 'Frontend Developer'}
+        targetRole={(activeResume || masterResume).targetRole || ''}
+      />
+
+      {/* Generate Resume from Job Description Modal */}
+      <GenerateJobResumeModal
+        isOpen={showJobModal}
+        onClose={() => setShowJobModal(false)}
+        currentResume={activeResume || masterResume}
+        onGenerated={(tailored) => {
+          setMasterResume(tailored);
+          setActiveTab('builder');
+        }}
       />
     </div>
   );

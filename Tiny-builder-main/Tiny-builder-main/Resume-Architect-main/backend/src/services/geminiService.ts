@@ -17,16 +17,25 @@ const getClient = () => {
 // Safe generation helper — retries on 503 (rate limit) and falls back on 404 (deprecated)
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const cleanJsonResponse = (raw: string): string => {
+  return raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+};
+
 const generateWithModelFallback = async (
   ai: GoogleGenAI,
   prompt: string,
   config?: any
 ): Promise<string> => {
-  // Only use models that are currently available
+  // Use supported Gemini production models with automatic fallback
   const models = [
-    'gemini-3.8-flash',
-    'gemini-3.8-flash-8b',
-    'gemini-2.5-flash-lite-preview-06-17',  // lightweight alternative
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-pro',
   ];
   let lastError: any = null;
 
@@ -89,11 +98,7 @@ export const enhanceText = async (
     return result.trim() || text;
   } catch (error: any) {
     console.warn('[Gemini] enhanceText fallback triggered:', error.message);
-    // Intelligent local fallback
-    if (context === 'summary') {
-      return text.includes('Results-driven') ? text : `Results-driven software engineer with proven hands-on experience in building scalable web applications. Strong foundation in software architecture, clean code principles, and evidence-backed technical execution. ${text}`;
-    }
-    return `Architected and implemented production-ready components, optimizing performance and code maintainability. ${text}`;
+    return text;
   }
 };
 
@@ -149,7 +154,7 @@ Return a JSON object with these exact fields:
       responseMimeType: 'application/json',
     });
 
-    const parsed = JSON.parse(jsonText);
+    const parsed = JSON.parse(cleanJsonResponse(jsonText));
     return {
       score: parsed.score || 78,
       atsScore: parsed.atsScore || 82,
@@ -229,7 +234,7 @@ Return a JSON object:
     const jsonText = await generateWithModelFallback(ai, prompt, {
       responseMimeType: 'application/json',
     });
-    return JSON.parse(jsonText) as JobDescriptionMatch;
+    return JSON.parse(cleanJsonResponse(jsonText)) as JobDescriptionMatch;
   } catch (error: any) {
     console.warn('[Gemini] analyzeJobDescription using fallback:', error.message);
     return generateFallbackJobMatch(resumeData, evidenceList, jobDescription, targetRole);
@@ -237,33 +242,55 @@ Return a JSON object:
 };
 
 // ============================================================
-// 4. Generate Role-Based Resume Content
+// ============================================================
+// 4. Generate Role-Based Resume Content from Job Description
 // ============================================================
 export const generateRoleBasedResume = async (
   resumeData: ResumeData,
   targetRole: string,
   jobDescription: string
 ): Promise<ResumeData> => {
+  const effectiveRole = targetRole || resumeData.targetRole || 'Software Engineer';
   const prompt = `
-You are an expert resume strategist. Improve the following resume for the target role: "${targetRole}".
+You are an expert career strategist and technical resume architect.
+Analyze the following JOB DESCRIPTION and generate or tailor a comprehensive, high-impact resume.
 
-Rules:
-1. Rewrite the professional summary to be role-specific and evidence-backed (max 4 sentences).
-2. Improve project descriptions to highlight relevant tech stack, scale, and impact.
-3. Do NOT fabricate or add false information.
-4. Return only the updated summary string and updated projects array.
-
-CURRENT RESUME DATA (JSON):
-${JSON.stringify({ summary: resumeData.summary, projects: resumeData.projects }, null, 2)}
+TARGET ROLE / TITLE: "${effectiveRole}"
 
 TARGET JOB DESCRIPTION:
 ${jobDescription}
 
-Return JSON:
+CURRENT RESUME DATA (JSON):
+${JSON.stringify({
+  fullName: resumeData.fullName,
+  targetRole: resumeData.targetRole,
+  summary: resumeData.summary,
+  skills: resumeData.skills,
+  experience: resumeData.experience,
+  projects: resumeData.projects,
+  education: resumeData.education,
+}, null, 2)}
+
+Instructions:
+1. Extract or refine the exact professional Target Role from the job description (e.g. "Senior React Developer", "Full Stack Engineer", "Data Scientist").
+2. Write a compelling, role-aligned Professional Summary (3-4 sentences) that highlights the exact skills, value proposition, and qualifications sought in the job description.
+3. Extract 8 to 15 relevant technical skills, tools, frameworks, and methodologies explicitly mentioned or required by the job description. Return them as a skills array: [{"id": "skill-1", "name": "Skill Name", "level": "Expert"}, ...]. If the current resume already has skills, integrate and prioritize matching ones.
+4. Provide 2-3 tailored Projects that demonstrate hands-on application of the technologies and requirements from the job description. If the candidate already has projects, adapt their descriptions to highlight the relevant tech stack and impact.
+5. Provide relevant Work Experience: if candidate has existing experience, enhance descriptions with metrics and keywords matching the job description; if empty, provide a realistic position tailored to the target role with achievement bullets demonstrating the job requirements.
+6. Preserve any existing personal info (fullName, email, phone, location, linkedin, website, education).
+
+Return strictly a valid JSON object matching this structure:
 {
-  "summary": "Improved professional summary here",
+  "targetRole": "Extracted or provided role title",
+  "summary": "Compelling tailored professional summary",
+  "skills": [
+    { "id": "skill-1", "name": "Skill Name", "level": "Expert" }
+  ],
   "projects": [
-    { "id": "proj-1", "title": "ExamVerse", "link": "...", "description": "Improved description" }
+    { "id": "proj-1", "title": "Project Title", "link": "", "description": "Bullet points highlighting tech stack and achievements" }
+  ],
+  "experience": [
+    { "id": "exp-1", "role": "Role Title", "company": "Company Name", "startDate": "2023-01", "endDate": "Present", "isCurrent": true, "description": "Key achievements matching job requirements" }
   ]
 }
 `.trim();
@@ -273,22 +300,72 @@ Return JSON:
     const jsonText = await generateWithModelFallback(ai, prompt, {
       responseMimeType: 'application/json',
     });
-    const improved = JSON.parse(jsonText);
+    const generated = JSON.parse(cleanJsonResponse(jsonText));
 
     return {
       ...resumeData,
-      targetRole,
-      summary: improved.summary || resumeData.summary,
-      projects: improved.projects && improved.projects.length > 0
-        ? improved.projects
+      targetRole: generated.targetRole || effectiveRole,
+      summary: generated.summary || resumeData.summary,
+      skills: Array.isArray(generated.skills) && generated.skills.length > 0
+        ? generated.skills.map((s: any, idx: number) => ({
+            id: s.id || `skill-${idx + 1}`,
+            name: s.name || String(s),
+            level: s.level || 'Intermediate',
+          }))
+        : resumeData.skills,
+      projects: Array.isArray(generated.projects) && generated.projects.length > 0
+        ? generated.projects.map((p: any, idx: number) => ({
+            id: p.id || `proj-${idx + 1}`,
+            title: p.title || 'Technical Project',
+            link: p.link || '',
+            description: p.description || '',
+          }))
         : resumeData.projects,
+      experience: Array.isArray(generated.experience) && generated.experience.length > 0
+        ? generated.experience.map((e: any, idx: number) => ({
+            id: e.id || `exp-${idx + 1}`,
+            role: e.role || generated.targetRole || effectiveRole,
+            company: e.company || 'Technology Solutions',
+            startDate: e.startDate || '2023-01',
+            endDate: e.endDate || '',
+            isCurrent: e.isCurrent ?? true,
+            description: e.description || '',
+          }))
+        : resumeData.experience,
     };
   } catch (error: any) {
-    console.warn('[Gemini] generateRoleBasedResume using fallback:', error.message);
+    console.warn('[Gemini] generateRoleBasedResume using fallback generator:', error.message);
+    // Intelligent local fallback: extract common keywords from JD
+    const commonTech = [
+      'React', 'TypeScript', 'JavaScript', 'Python', 'Node.js', 'Next.js',
+      'HTML', 'CSS', 'Tailwind CSS', 'SQL', 'PostgreSQL', 'MongoDB', 'REST APIs',
+      'GraphQL', 'Docker', 'AWS', 'Git', 'Redux', 'Express', 'Java', 'C++', 'Go',
+      'CI/CD', 'Jest', 'Figma', 'Linux', 'Microservices'
+    ];
+    const extractedSkills = commonTech.filter((t) =>
+      new RegExp(`\\b${t.replace('+', '\\+')}\\b`, 'i').test(jobDescription)
+    );
+    const finalSkills = extractedSkills.length > 0 ? extractedSkills : ['JavaScript', 'React', 'Git', 'REST APIs'];
+
     return {
       ...resumeData,
-      targetRole,
-      summary: `Evidence-backed ${targetRole} with hands-on proficiency in production development, verified technical projects, and modern software tooling. ${resumeData.summary || ''}`,
+      targetRole: effectiveRole,
+      summary: `Results-driven ${effectiveRole} with proven capability in ${finalSkills.slice(0, 4).join(', ')}. Demonstrated success delivering high-quality, scalable solutions aligned with key technical requirements and industry standards.`,
+      skills: finalSkills.map((s, idx) => ({
+        id: `skill-${idx + 1}`,
+        name: s,
+        level: 'Intermediate',
+      })),
+      projects: resumeData.projects && resumeData.projects.length > 0
+        ? resumeData.projects
+        : [
+            {
+              id: 'proj-1',
+              title: `${effectiveRole} Core Platform`,
+              link: '',
+              description: `Developed end-to-end platform utilizing ${finalSkills.slice(0, 3).join(', ')}. Built responsive interfaces, optimized performance, and implemented automated workflows.`,
+            },
+          ],
     };
   }
 };
@@ -320,7 +397,7 @@ Return as a JSON array of strings: ["recommendation1", "recommendation2", ...]
     const jsonText = await generateWithModelFallback(ai, prompt, {
       responseMimeType: 'application/json',
     });
-    return JSON.parse(jsonText) as string[];
+    return JSON.parse(cleanJsonResponse(jsonText)) as string[];
   } catch (error: any) {
     console.warn('[Gemini] generateImprovementRecommendations using fallback:', error.message);
     return [
@@ -522,32 +599,34 @@ const generateFallbackJobMatch = (
 // ============================================================
 export const parseResumeFromText = async (
   extractedText: string,
-  targetRole: string = 'Software Engineer'
+  targetRole: string = ''
 ): Promise<ResumeData> => {
   const prompt = `
 You are an expert resume parser. Extract structured information from the following resume text.
-If a section is not present in the text, provide reasonable empty defaults.
+STRICT REQUIREMENT: Extract ONLY information that is explicitly stated in the resume text.
+Do NOT invent, assume, fabricate, or extrapolate any skills, jobs, degrees, dates, projects, or contact details.
+If a section or field is not present in the text, return an empty string "" or an empty array [].
 
 RESUME TEXT:
-${extractedText.substring(0, 6000)}
+${extractedText.substring(0, 8000)}
 
 Return a JSON object conforming strictly to this structure:
 {
-  "fullName": "Candidate full name",
-  "email": "email@example.com",
-  "phone": "phone number",
-  "location": "City, Country",
-  "linkedin": "https://linkedin.com/in/...",
-  "website": "https://github.com/...",
-  "summary": "Professional summary or objective",
+  "fullName": "Candidate full name or empty string",
+  "email": "Candidate email or empty string",
+  "phone": "Candidate phone or empty string",
+  "location": "City/Country or empty string",
+  "linkedin": "LinkedIn URL or empty string",
+  "website": "GitHub/Portfolio URL or empty string",
+  "summary": "Summary text explicitly in resume or empty string",
   "targetRole": "${targetRole}",
   "experience": [
     {
       "id": "exp-1",
       "company": "Company Name",
       "role": "Job Title",
-      "startDate": "YYYY or Month YYYY",
-      "endDate": "YYYY or Present",
+      "startDate": "Start Date",
+      "endDate": "End Date",
       "description": "Responsibilities and achievements",
       "isCurrent": false
     }
@@ -562,14 +641,14 @@ Return a JSON object conforming strictly to this structure:
     }
   ],
   "skills": [
-    { "id": "skill-1", "name": "Skill Name", "level": "Expert" }
+    { "id": "skill-1", "name": "Skill Name", "level": "Intermediate" }
   ],
   "projects": [
     {
       "id": "proj-1",
       "title": "Project Title",
-      "link": "https://...",
-      "description": "Project overview and technologies used"
+      "link": "URL or empty string",
+      "description": "Project overview"
     }
   ],
   "templateId": "modern"
@@ -581,7 +660,7 @@ Return a JSON object conforming strictly to this structure:
     const jsonText = await generateWithModelFallback(ai, prompt, {
       responseMimeType: 'application/json',
     });
-    const parsed = JSON.parse(jsonText);
+    const parsed = JSON.parse(cleanJsonResponse(jsonText));
     return sanitizeParsedResume(parsed, extractedText, targetRole);
   } catch (error: any) {
     console.warn('[Gemini] parseResumeFromText using heuristic fallback:', error.message);
@@ -596,18 +675,18 @@ const sanitizeParsedResume = (
 ): ResumeData => {
   const fallback = fallbackParseResumeText(fallbackText, targetRole);
   return {
-    fullName: raw?.fullName?.trim() || fallback.fullName,
-    email: raw?.email?.trim() || fallback.email,
-    phone: raw?.phone?.trim() || fallback.phone,
-    location: raw?.location?.trim() || fallback.location,
-    linkedin: raw?.linkedin?.trim() || fallback.linkedin,
-    website: raw?.website?.trim() || fallback.website,
-    summary: raw?.summary?.trim() || fallback.summary,
-    targetRole: raw?.targetRole || targetRole,
-    experience: Array.isArray(raw?.experience) && raw.experience.length > 0 ? raw.experience : fallback.experience,
-    education: Array.isArray(raw?.education) && raw.education.length > 0 ? raw.education : fallback.education,
-    skills: Array.isArray(raw?.skills) && raw.skills.length > 0 ? raw.skills : fallback.skills,
-    projects: Array.isArray(raw?.projects) && raw.projects.length > 0 ? raw.projects : fallback.projects,
+    fullName: raw?.fullName?.trim() || fallback.fullName || '',
+    email: raw?.email?.trim() || fallback.email || '',
+    phone: raw?.phone?.trim() || fallback.phone || '',
+    location: raw?.location?.trim() || fallback.location || '',
+    linkedin: raw?.linkedin?.trim() || fallback.linkedin || '',
+    website: raw?.website?.trim() || fallback.website || '',
+    summary: raw?.summary?.trim() || fallback.summary || '',
+    targetRole: raw?.targetRole || targetRole || '',
+    experience: Array.isArray(raw?.experience) ? raw.experience : fallback.experience,
+    education: Array.isArray(raw?.education) ? raw.education : fallback.education,
+    skills: Array.isArray(raw?.skills) ? raw.skills : fallback.skills,
+    projects: Array.isArray(raw?.projects) ? raw.projects : fallback.projects,
     templateId: (['modern', 'classic', 'minimal', 'sidebar', 'executive', 'creative', 'developer'].includes(raw?.templateId)
       ? raw.templateId
       : 'modern') as ResumeData['templateId'],
@@ -631,7 +710,7 @@ export const fallbackParseResumeText = (
   const website = githubMatch ? (githubMatch[0].startsWith('http') ? githubMatch[0] : `https://${githubMatch[0]}`) : '';
 
   // Full Name
-  let fullName = 'Resume Candidate';
+  let fullName = '';
   for (const line of lines.slice(0, 6)) {
     const clean = line.replace(/[^a-zA-Z\s.]/g, '').trim();
     if (clean.length >= 3 && clean.length <= 45 && /^[A-Z]/.test(clean) &&
@@ -684,8 +763,7 @@ export const fallbackParseResumeText = (
     const m = text.match(/(?:SUMMARY|PROFILE|OBJECTIVE|ABOUT ME)[:\s]*([\s\S]+?)(?=\n(?:EXPERIENCE|EDUCATION|SKILLS|PROJECTS|CERTIFICATION|$))/i);
     if (m) summary = m[1].trim().substring(0, 500);
   }
-  if (!summary) summary = `Motivated ${targetRole} with hands-on experience in software development, modern web technologies, and scalable systems.`;
-  else summary = summary.substring(0, 500);
+  summary = summary ? summary.substring(0, 500) : '';
 
   // Skills
   const skillsText = getSection('SKILLS', 'TECHNICAL', 'CORE') || text;
@@ -716,10 +794,6 @@ export const fallbackParseResumeText = (
     }
   }
 
-  if (detectedSkills.length === 0) {
-    detectedSkills.push({ id: 'skill-1', name: 'JavaScript', level: 'Expert' }, { id: 'skill-2', name: 'React', level: 'Intermediate' }, { id: 'skill-3', name: 'Git', level: 'Intermediate' });
-  }
-
   // Experience
   const expText = getSection('EXPERIENCE', 'WORK', 'EMPLOYMENT', 'PROFESSIONAL');
   const experience: ResumeData['experience'] = [];
@@ -744,10 +818,6 @@ export const fallbackParseResumeText = (
     }
   }
 
-  if (experience.length === 0) {
-    experience.push({ id: 'exp-1', company: 'Company Name', role: targetRole, startDate: '2022', endDate: 'Present', description: 'Led development of key features, collaborated with cross-functional teams, and delivered impactful results.', isCurrent: true });
-  }
-
   // Education
   const eduText = getSection('EDUCATION', 'ACADEMIC');
   const education: ResumeData['education'] = [];
@@ -766,10 +836,6 @@ export const fallbackParseResumeText = (
       const degree = degreeLine || `Degree in ${targetRole}`;
       education.push({ id: `edu-${eduId++}`, institution, degree, startDate, endDate });
     }
-  }
-
-  if (education.length === 0) {
-    education.push({ id: 'edu-1', institution: 'University / College', degree: 'Bachelor of Technology in Computer Science', startDate: '2019', endDate: '2023' });
   }
 
   // Projects
@@ -791,9 +857,5 @@ export const fallbackParseResumeText = (
     }
   }
 
-  if (projects.length === 0) {
-    projects.push({ id: 'proj-1', title: 'Full-Stack Web Application', link: website || 'https://github.com', description: 'Engineered a performant web application integrating REST APIs and real-time state management.', technologies: detectedSkills.slice(0, 4).map((s) => s.name) });
-  }
-
-  return { fullName, email: email || 'candidate@example.com', phone: phone || '+91 99999 99999', location: location || 'India', linkedin, website, summary, targetRole, experience, education, skills: detectedSkills, projects, templateId: 'modern' };
+  return { fullName, email: email || '', phone: phone || '', location: location || '', linkedin, website, summary, targetRole: targetRole || '', experience, education, skills: detectedSkills, projects, templateId: 'modern' };
 };

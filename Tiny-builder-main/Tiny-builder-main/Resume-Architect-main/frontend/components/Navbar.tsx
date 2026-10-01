@@ -1,30 +1,48 @@
-import React, { useState } from 'react';
-import { FileText, Cpu, Target, ShieldCheck, BarChart3, Download, Printer, Menu, X, Sparkles, UserCheck } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import {
+  FileText, Cpu, Target, ShieldCheck, BarChart3,
+  Download, Printer, Menu, X, Loader2, Save, Upload, RotateCcw, Sparkles
+} from 'lucide-react';
+import { ResumeData } from '../types';
+import { analyzePDFResumeAPI } from '../services/apiClient';
+import { parseResumeTextClient, readFileContent } from '../services/resumeParser';
 
 export type NavTab = 'builder' | 'analyzer' | 'matcher' | 'evidence' | 'reports';
 
 interface NavbarProps {
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
-  onLoadDemo: () => void;
+  onUploadResume: (data: ResumeData) => void;
+  onClearResume?: () => void;
   onDownloadWord: () => void;
   onDownloadPDF: () => void;
   onPrint: () => void;
   onSave?: () => void;
+  onOpenGenerateJobModal?: () => void;
   activeProfileName?: string;
+  isSaving?: boolean;
+  hasTailored?: boolean;
+  onDiscardTailored?: () => void;
+  onApplyTailoredAsMaster?: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
-  onLoadDemo,
+  onUploadResume,
+  onClearResume,
   onDownloadWord,
   onDownloadPDF,
   onPrint,
   onSave,
-  activeProfileName = 'Joshva Rahul',
+  onOpenGenerateJobModal,
+  activeProfileName = '',
+  isSaving = false,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const navItems: { id: NavTab; label: string; icon: any }[] = [
     { id: 'builder', label: 'Builder', icon: FileText },
@@ -33,6 +51,45 @@ const Navbar: React.FC<NavbarProps> = ({
     { id: 'evidence', label: 'Evidence', icon: ShieldCheck },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
   ];
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const result = await analyzePDFResumeAPI(file);
+      if (result?.parsedResume) {
+        onUploadResume(result.parsedResume);
+      } else {
+        // Fallback to client reader
+        const text = await readFileContent(file);
+        if (text && text.trim().length > 20) {
+          const parsed = parseResumeTextClient(text);
+          onUploadResume(parsed);
+        } else {
+          setUploadError('Could not read resume text from this file.');
+        }
+      }
+    } catch (err: any) {
+      // Try local text parse fallback
+      try {
+        const text = await readFileContent(file);
+        if (text && text.trim().length > 20) {
+          const parsed = parseResumeTextClient(text);
+          onUploadResume(parsed);
+          return;
+        }
+      } catch { /* ignore */ }
+
+      setUploadError(err.message || 'Failed to upload and parse resume.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   return (
     <nav className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm no-print">
@@ -48,7 +105,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 Resume<span className="text-blue-600">Architect</span>
               </span>
               <span className="hidden sm:inline-block ml-2.5 px-2 py-0.5 bg-blue-50 text-blue-700 font-semibold text-[10px] rounded-full border border-blue-200 uppercase tracking-wide">
-                Analyser AI
+                Evidence AI
               </span>
             </div>
           </div>
@@ -77,72 +134,115 @@ const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Header Actions */}
           <div className="hidden md:flex items-center gap-2">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
+            {/* Generate from Job Description Button */}
+            {onOpenGenerateJobModal && (
+              <button
+                onClick={onOpenGenerateJobModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                title="Generate or tailor resume from job description"
+              >
+                <Sparkles size={14} className="text-yellow-300" />
+                <span>Generate from JD</span>
+              </button>
+            )}
+
+            {/* Upload Resume Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+              title="Upload PDF or DOCX Resume"
+            >
+              {isUploading ? (
+                <Loader2 size={14} className="animate-spin text-blue-600" />
+              ) : (
+                <Upload size={14} className="text-blue-600" />
+              )}
+              {isUploading ? 'Parsing…' : 'Upload Resume'}
+            </button>
+
             {onSave && (
               <button
                 onClick={onSave}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs"
-                title="Save Resume to Cloud"
+                disabled={isSaving}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+                title="Save changes"
               >
-                <FileText size={14} className="text-emerald-600" />
-                Save Master
+                {isSaving ? (
+                  <Loader2 size={14} className="animate-spin text-emerald-600" />
+                ) : (
+                  <Save size={14} className="text-emerald-600" />
+                )}
+                {isSaving ? 'Saving…' : 'Save'}
               </button>
             )}
-            <button
-              onClick={onLoadDemo}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs"
-              title="Load complete Joshva Rahul profile with projects & evidence"
-            >
-              <Sparkles size={14} className="text-amber-600" />
-              Demo
-            </button>
-            <button
-              onClick={() => import('../services/supabaseClient').then(({ supabase }) => supabase.auth.signOut())}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200/80 rounded-lg text-xs font-semibold transition-colors shadow-xs"
-              title="Log Out"
-            >
-              Log Out
-            </button>
 
-            {activeTab === 'builder' && (
-              <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
-                <button
-                  onClick={onDownloadWord}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="Export Word Document (.doc)"
-                >
-                  <Download size={14} /> Word
-                </button>
-                <button
-                  onClick={onDownloadPDF}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="Export Direct PDF"
-                >
-                  <FileText size={14} /> PDF
-                </button>
-                <button
-                  onClick={onPrint}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors shadow-sm"
-                  title="Print or Vector PDF"
-                >
-                  <Printer size={14} /> Print / Vector PDF
-                </button>
-              </div>
+            {onClearResume && (
+              <button
+                onClick={onClearResume}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-semibold transition-colors"
+                title="Start with new resume"
+              >
+                <RotateCcw size={13} />
+                <span>Reset</span>
+              </button>
             )}
 
+            {/* Export Actions */}
+            <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
+              <button
+                onClick={onDownloadWord}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                title="Export Word Document (.doc)"
+              >
+                <Download size={14} /> Word
+              </button>
+              <button
+                onClick={onDownloadPDF}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                title="Export Direct PDF"
+              >
+                <FileText size={14} /> PDF
+              </button>
+              <button
+                onClick={onPrint}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
+                title="Print or Vector PDF"
+              >
+                <Printer size={14} /> Print
+              </button>
+            </div>
+
+            {/* Candidate Avatar */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200">
-                {activeProfileName ? activeProfileName.charAt(0) : 'J'}
+              <div
+                className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200"
+                title={activeProfileName || 'No profile loaded'}
+              >
+                {activeProfileName && activeProfileName.trim().length > 0
+                  ? activeProfileName.trim().charAt(0).toUpperCase()
+                  : '👤'}
               </div>
             </div>
           </div>
 
-          {/* Mobile Hamburger Toggle */}
+          {/* Mobile Actions */}
           <div className="md:hidden flex items-center gap-2">
             <button
-              onClick={onLoadDemo}
-              className="p-1.5 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 text-xs font-semibold flex items-center gap-1"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="p-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 text-xs font-semibold flex items-center gap-1"
             >
-              <Sparkles size={14} /> Demo
+              <Upload size={14} /> {isUploading ? 'Parsing…' : 'Upload'}
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -153,6 +253,14 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Upload error banner if any */}
+      {uploadError && (
+        <div className="bg-red-50 border-t border-red-200 px-4 py-2 text-xs text-red-700 flex items-center justify-between">
+          <span>⚠️ {uploadError}</span>
+          <button onClick={() => setUploadError(null)} className="font-bold ml-2">×</button>
+        </div>
+      )}
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
@@ -178,27 +286,36 @@ const Navbar: React.FC<NavbarProps> = ({
           })}
 
           <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-            {activeTab === 'builder' && (
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={onDownloadWord}
-                  className="py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg text-center"
-                >
-                  Word
-                </button>
-                <button
-                  onClick={onDownloadPDF}
-                  className="py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg text-center"
-                >
-                  PDF
-                </button>
-                <button
-                  onClick={onPrint}
-                  className="py-2 text-xs font-semibold bg-slate-900 text-white rounded-lg text-center"
-                >
-                  Print
-                </button>
-              </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={onDownloadWord}
+                className="py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg text-center"
+              >
+                Word
+              </button>
+              <button
+                onClick={onDownloadPDF}
+                className="py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg text-center"
+              >
+                PDF
+              </button>
+              <button
+                onClick={onPrint}
+                className="py-2 text-xs font-semibold bg-slate-900 text-white rounded-lg text-center"
+              >
+                Print
+              </button>
+            </div>
+            {onClearResume && (
+              <button
+                onClick={() => {
+                  onClearResume();
+                  setMobileMenuOpen(false);
+                }}
+                className="py-2 text-xs font-semibold text-rose-600 bg-rose-50 rounded-lg text-center"
+              >
+                Reset Resume
+              </button>
             )}
           </div>
         </div>
