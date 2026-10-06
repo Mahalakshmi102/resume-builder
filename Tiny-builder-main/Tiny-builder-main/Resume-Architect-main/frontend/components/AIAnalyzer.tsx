@@ -6,7 +6,7 @@ import { parseResumeTextClient, readFileContent } from '../services/resumeParser
 import { isResumeEmpty } from '../services/resumeAnalyzer';
 import {
   Cpu, FileText, CheckCircle2, AlertCircle, Sparkles,
-  ArrowRight, ShieldCheck, Loader2, Upload
+  ArrowRight, ShieldCheck, Loader2, Upload, Mic
 } from 'lucide-react';
 
 interface AIAnalyzerProps {
@@ -17,6 +17,7 @@ interface AIAnalyzerProps {
   onNavigateToEvidence: () => void;
   onUpdateResume?: (newResume: ResumeData) => void;
   onNavigateToBuilder?: () => void;
+  onNavigateToRehearsal?: () => void;
 }
 
 const AIAnalyzer: React.FC<AIAnalyzerProps> = ({
@@ -26,6 +27,7 @@ const AIAnalyzer: React.FC<AIAnalyzerProps> = ({
   onNavigateToJobMatcher,
   onNavigateToEvidence,
   onUpdateResume,
+  onNavigateToRehearsal,
 }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult>(() =>
@@ -237,6 +239,34 @@ const AIAnalyzer: React.FC<AIAnalyzerProps> = ({
             <p className="text-[10px] text-slate-500 font-medium pt-1">Composite rating</p>
           </div>
         </div>
+
+        {/* AI Rehearsal Callout Banner */}
+        {!isEmpty && onNavigateToRehearsal && (
+          <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 rounded-2xl p-5 sm:p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-purple-500/20">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center shrink-0 text-purple-300 shadow-inner">
+                <Mic size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded-full border border-purple-400/30">Mock Interview</span>
+                  <h3 className="font-extrabold text-base text-white">AI Rehearsal Mode</h3>
+                </div>
+                <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                  Let Gemini examine your resume's projects and skills to grill you with real-world interview questions and evaluate your responses.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onNavigateToRehearsal}
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-950 flex items-center gap-2 shrink-0 cursor-pointer"
+            >
+              <span>Practice Mock Interview</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
+
 
         {/* Profile Overview & Detected Skills */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

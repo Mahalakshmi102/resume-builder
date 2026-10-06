@@ -192,32 +192,34 @@ export const loadResumeSessionAPI = async (sessionId: string): Promise<any> => {
 };
 
 // ============================================================
-// AI — Mock Interview Questions from Resume
+// AI Rehearsal — Generate Mock Interview Questions
 // ============================================================
-export const getInterviewQuestionsAPI = async (
+export const fetchInterviewQuestionsAPI = async (
   resumeData: any,
   targetRole?: string,
-  interviewType?: string,
-  difficulty?: string
-): Promise<{ questions: any[] }> => {
+  interviewStyle?: string,
+  jobDescription?: string
+): Promise<any> => {
   return apiCall('/api/ai/interview-questions', {
     method: 'POST',
-    body: JSON.stringify({ resumeData, targetRole, interviewType, difficulty }),
+    body: JSON.stringify({ resumeData, targetRole, interviewStyle, jobDescription }),
   });
 };
 
 // ============================================================
-// AI — Evaluate Mock Interview Answer
+// AI Rehearsal — Evaluate Candidate's Answer
 // ============================================================
 export const evaluateInterviewAnswerAPI = async (
   question: string,
-  userAnswer: string,
+  interviewerIntent: string,
+  candidateAnswer: string,
   resumeContext?: string,
-  targetRole?: string
+  modelAnswerOutline?: string[],
+  category?: string
 ): Promise<any> => {
-  return apiCall('/api/ai/interview-feedback', {
+  return apiCall('/api/ai/evaluate-answer', {
     method: 'POST',
-    body: JSON.stringify({ question, userAnswer, resumeContext, targetRole }),
+    body: JSON.stringify({ question, interviewerIntent, candidateAnswer, resumeContext, modelAnswerOutline, category }),
   });
 };
 

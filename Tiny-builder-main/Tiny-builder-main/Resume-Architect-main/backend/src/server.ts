@@ -17,7 +17,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables first
+// Load environment variables first (.env)
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // Import routes

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResumeData, EvidenceItem, JobDescriptionMatch } from '../types';
 import { runJobMatchAnalysis, generateTailoredRoleResume } from '../services/aiService';
 import { isResumeEmpty } from '../services/resumeAnalyzer';
@@ -18,14 +18,74 @@ const JobMatcher: React.FC<JobMatcherProps> = ({
   onApplyRoleBasedResume,
   onOpenWhyThisSkill,
 }) => {
-  const [targetRole, setTargetRole] = useState(resumeData.targetRole || '');
-  const [jobDescription, setJobDescription] = useState('');
-  const [matchResult, setMatchResult] = useState<JobDescriptionMatch | null>(null);
+  const [targetRole, setTargetRole] = useState(() => {
+    try {
+      return sessionStorage.getItem('jm_target_role') || resumeData.targetRole || '';
+    } catch {
+      return resumeData.targetRole || '';
+    }
+  });
+
+  const [jobDescription, setJobDescription] = useState(() => {
+    try {
+      return sessionStorage.getItem('jm_job_description') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [matchResult, setMatchResult] = useState<JobDescriptionMatch | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('jm_match_result');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [stepperStep, setStepperStep] = useState<number>(0);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [generatedResumeForModal, setGeneratedResumeForModal] = useState<ResumeData | null>(null);
+
+  // Sync to sessionStorage
+  useEffect(() => {
+    try {
+      if (jobDescription) {
+        sessionStorage.setItem('jm_job_description', jobDescription);
+      } else {
+        sessionStorage.removeItem('jm_job_description');
+      }
+    } catch { /* ignore */ }
+  }, [jobDescription]);
+
+  useEffect(() => {
+    try {
+      if (targetRole) {
+        sessionStorage.setItem('jm_target_role', targetRole);
+      } else {
+        sessionStorage.removeItem('jm_target_role');
+      }
+    } catch { /* ignore */ }
+  }, [targetRole]);
+
+  useEffect(() => {
+    try {
+      if (matchResult) {
+        sessionStorage.setItem('jm_match_result', JSON.stringify(matchResult));
+      } else {
+        sessionStorage.removeItem('jm_match_result');
+      }
+    } catch { /* ignore */ }
+  }, [matchResult]);
+
+  // Keep targetRole updated from active resume if not manually customized
+  useEffect(() => {
+    if (resumeData.targetRole && !targetRole) {
+      setTargetRole(resumeData.targetRole);
+    }
+  }, [resumeData.targetRole]);
 
   const isEmpty = isResumeEmpty(resumeData);
 
@@ -66,31 +126,6 @@ const JobMatcher: React.FC<JobMatcherProps> = ({
     <>
       <div className="h-full overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-8">
         <div className="max-w-6xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wider mb-1">
-                <Target size={16} /> Role Optimization
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Job Description Matcher & Role Tailoring
-              </h1>
-              <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-                Compare your uploaded resume against target job requirements and tailor your summary and highlighted skills.
-              </p>
-            </div>
-            <div>
-              <button
-                onClick={handleGenerateRoleResume}
-                disabled={isGenerating || !jobDescription.trim()}
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                <Wand2 size={16} className={isGenerating ? 'animate-spin' : ''} />
-                {isGenerating ? 'Tailoring Resume…' : 'Generate Role-Based Resume'}
-              </button>
-            </div>
-          </div>
-
           {/* Stepper Progress Bar when generating */}
           {isGenerating && (
             <div className="bg-blue-900 text-white p-6 rounded-2xl shadow-xl space-y-4 animate-in fade-in duration-300">

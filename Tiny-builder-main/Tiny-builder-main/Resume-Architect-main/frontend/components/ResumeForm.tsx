@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ResumeData, Experience, Education, Skill, Project, Certification } from '../types';
-import { Plus, Trash2, Wand2, ChevronDown, ChevronUp, Layout, Award, Target, Sparkles } from 'lucide-react';
+import { ResumeData, Experience, Education, Skill, Project, Certification, LanguageItem, AchievementItem, CustomSection } from '../types';
+import { Plus, Trash2, Wand2, ChevronDown, ChevronUp, Layout, Award, Target, Sparkles, Languages, Trophy, Globe, FileText, Check, Copy, FolderPlus } from 'lucide-react';
 import { enhanceSectionText } from '../services/aiService';
 
 interface ResumeFormProps {
@@ -18,11 +18,17 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpen
     projects: rawData.projects || [],
     education: rawData.education || [],
     skills: rawData.skills || [],
-    certifications: rawData.certifications || []
+    certifications: rawData.certifications || [],
+    languages: rawData.languages || [],
+    achievements: rawData.achievements || [],
+    interests: rawData.interests || [],
+    customSections: rawData.customSections || [],
+    rawText: rawData.rawText || '',
   };
 
   const [activeSection, setActiveSection] = useState<string | null>('personal');
   const [loadingEnhance, setLoadingEnhance] = useState<string | null>(null);
+  const [copiedRaw, setCopiedRaw] = useState(false);
 
   const updateField = (field: keyof ResumeData, value: any) => {
     onChange({ ...data, [field]: value });
@@ -66,6 +72,67 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpen
   };
   const updateCertification = (id: string, field: keyof Certification, value: any) => {
     updateField('certifications', (data.certifications || []).map(c => c.id === id ? { ...c, [field]: value } : c));
+  };
+
+  // -- Language Handlers --
+  const addLanguage = () => {
+    const newLang: LanguageItem = {
+      id: Date.now().toString(),
+      name: '', proficiency: ''
+    };
+    updateField('languages', [...(data.languages || []), newLang]);
+  };
+  const removeLanguage = (id: string) => {
+    updateField('languages', (data.languages || []).filter(l => l.id !== id));
+  };
+  const updateLanguage = (id: string, field: keyof LanguageItem, value: any) => {
+    updateField('languages', (data.languages || []).map(l => l.id === id ? { ...l, [field]: value } : l));
+  };
+
+  // -- Achievement Handlers --
+  const addAchievement = () => {
+    const newAch: AchievementItem = {
+      id: Date.now().toString(),
+      title: '', description: '', date: ''
+    };
+    updateField('achievements', [...(data.achievements || []), newAch]);
+  };
+  const removeAchievement = (id: string) => {
+    updateField('achievements', (data.achievements || []).filter(a => a.id !== id));
+  };
+  const updateAchievement = (id: string, field: keyof AchievementItem, value: any) => {
+    updateField('achievements', (data.achievements || []).map(a => a.id === id ? { ...a, [field]: value } : a));
+  };
+
+  // -- Custom Section Handlers --
+  const addCustomSection = () => {
+    const newSec: CustomSection = {
+      id: Date.now().toString(),
+      heading: 'Additional Information',
+      items: [],
+      content: ''
+    };
+    updateField('customSections', [...(data.customSections || []), newSec]);
+  };
+  const removeCustomSection = (id: string) => {
+    updateField('customSections', (data.customSections || []).filter(c => c.id !== id));
+  };
+  const updateCustomSection = (id: string, field: keyof CustomSection, value: any) => {
+    updateField('customSections', (data.customSections || []).map(c => {
+      if (c.id !== id) return c;
+      if (field === 'content') {
+        const contentStr = String(value);
+        return { ...c, content: contentStr, items: contentStr.split('\n').map(s => s.trim()).filter(Boolean) };
+      }
+      return { ...c, [field]: value };
+    }));
+  };
+
+  const handleCopyRaw = () => {
+    if (!data.rawText) return;
+    navigator.clipboard.writeText(data.rawText);
+    setCopiedRaw(true);
+    setTimeout(() => setCopiedRaw(false), 2000);
   };
 
   const toggleSection = (section: string) => {
@@ -639,6 +706,192 @@ const ResumeForm: React.FC<ResumeFormProps> = ({ data: rawData, onChange, onOpen
           </div>
         )}
       </div>
+
+      {/* Languages */}
+      <div className="bg-white mb-2 shadow-sm">
+        <SectionHeader title="Languages" id="languages" sectionKey="languages" />
+        {activeSection === 'languages' && (
+          <div className="p-4 space-y-3">
+            {(data.languages || []).length === 0 && (
+              <div className="text-center py-5 text-slate-400 text-xs">
+                <Globe size={24} className="mx-auto mb-1.5 text-slate-300" />
+                <p className="font-medium">No languages added.</p>
+              </div>
+            )}
+            {(data.languages || []).map((lang) => (
+              <div key={lang.id} className="flex items-center gap-3 p-2.5 border rounded-lg bg-slate-50">
+                <input
+                  placeholder="Language (e.g. English, Spanish)"
+                  value={lang.name}
+                  onChange={e => updateLanguage(lang.id, 'name', e.target.value)}
+                  className="flex-1 p-2 border rounded text-sm bg-white font-medium focus:ring-2 focus:ring-primary focus:outline-none"
+                />
+                <input
+                  placeholder="Proficiency (e.g. Fluent, Native)"
+                  value={lang.proficiency || ''}
+                  onChange={e => updateLanguage(lang.id, 'proficiency', e.target.value)}
+                  className="w-44 p-2 border rounded text-sm bg-white focus:ring-2 focus:ring-primary focus:outline-none"
+                />
+                <button
+                  onClick={() => removeLanguage(lang.id)}
+                  className="p-1.5 text-slate-400 hover:text-red-500"
+                  title="Remove language"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addLanguage}
+              className="w-full py-2 border-2 border-dashed border-slate-300 rounded text-slate-500 hover:border-primary hover:text-primary transition-colors flex justify-center items-center gap-2 text-sm"
+            >
+              <Plus size={16} /> Add Language
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Key Achievements & Honors */}
+      <div className="bg-white mb-2 shadow-sm">
+        <SectionHeader title="Achievements & Honors" id="achievements" sectionKey="achievements" />
+        {activeSection === 'achievements' && (
+          <div className="p-4 space-y-3">
+            {(data.achievements || []).length === 0 && (
+              <div className="text-center py-5 text-slate-400 text-xs">
+                <Trophy size={24} className="mx-auto mb-1.5 text-slate-300" />
+                <p className="font-medium">No achievements added.</p>
+              </div>
+            )}
+            {(data.achievements || []).map((ach) => (
+              <div key={ach.id} className="relative p-3.5 border rounded-xl bg-slate-50 space-y-2">
+                <button
+                  onClick={() => removeAchievement(ach.id)}
+                  className="absolute top-2.5 right-2.5 text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 size={15} />
+                </button>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-xs font-medium text-slate-500 uppercase">Title / Award</label>
+                    <input
+                      placeholder="e.g. 1st Place Hackathon, Dean's List"
+                      value={ach.title}
+                      onChange={e => updateAchievement(ach.id, 'title', e.target.value)}
+                      className="w-full p-2 border rounded mt-1 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 uppercase">Date / Year</label>
+                    <input
+                      placeholder="e.g. 2024"
+                      value={ach.date || ''}
+                      onChange={e => updateAchievement(ach.id, 'date', e.target.value)}
+                      className="w-full p-2 border rounded mt-1 text-sm focus:ring-2 focus:ring-primary focus:outline-none bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 uppercase">Description (Optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Details about the award or recognition..."
+                    value={ach.description || ''}
+                    onChange={e => updateAchievement(ach.id, 'description', e.target.value)}
+                    className="w-full p-2 border rounded mt-1 text-sm focus:ring-2 focus:ring-primary focus:outline-none bg-white"
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={addAchievement}
+              className="w-full py-2 border-2 border-dashed border-slate-300 rounded text-slate-500 hover:border-primary hover:text-primary transition-colors flex justify-center items-center gap-2 text-sm"
+            >
+              <Plus size={16} /> Add Achievement
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Custom & Unmapped Sections (Zero Data Loss) */}
+      <div className="bg-white mb-2 shadow-sm">
+        <SectionHeader title={`Custom Sections (${(data.customSections || []).length})`} id="customSections" sectionKey="customSections" />
+        {activeSection === 'customSections' && (
+          <div className="p-4 space-y-4">
+            {(data.customSections || []).length === 0 && (
+              <div className="text-center py-5 text-slate-400 text-xs">
+                <FolderPlus size={24} className="mx-auto mb-1.5 text-slate-300" />
+                <p className="font-medium">No custom sections.</p>
+                <p className="mt-0.5">Any unmapped sections from your uploaded resume appear here automatically.</p>
+              </div>
+            )}
+            {(data.customSections || []).map((sec) => (
+              <div key={sec.id} className="relative p-4 border rounded-xl bg-slate-50 space-y-3">
+                <button
+                  onClick={() => removeCustomSection(sec.id)}
+                  className="absolute top-2.5 right-2.5 text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 size={16} />
+                </button>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase">Section Heading</label>
+                  <input
+                    value={sec.heading}
+                    onChange={e => updateCustomSection(sec.id, 'heading', e.target.value)}
+                    className="w-full p-2 border rounded mt-1 text-sm font-bold text-slate-800 bg-white focus:ring-2 focus:ring-primary focus:outline-none"
+                    placeholder="e.g. Publications, Volunteer Work, Leadership"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase">Section Content</label>
+                  <textarea
+                    rows={4}
+                    value={sec.content || (sec.items || []).join('\n')}
+                    onChange={e => updateCustomSection(sec.id, 'content', e.target.value)}
+                    className="w-full p-2.5 border rounded mt-1 text-sm text-slate-700 bg-white focus:ring-2 focus:ring-primary focus:outline-none leading-relaxed font-sans"
+                    placeholder="Content or bullet points for this section..."
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={addCustomSection}
+              className="w-full py-2 border-2 border-dashed border-slate-300 rounded text-slate-500 hover:border-primary hover:text-primary transition-colors flex justify-center items-center gap-2 text-sm"
+            >
+              <Plus size={16} /> Add Custom Section
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Raw Extracted Resume Content (Source of Truth) */}
+      {data.rawText && (
+        <div className="bg-white mb-2 shadow-sm">
+          <SectionHeader title="Preserved Uploaded Content" id="rawText" />
+          {activeSection === 'rawText' && (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  <Check size={12} className="stroke-[3]" /> Single Source of Truth Preserved
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyRaw}
+                  className="px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 rounded flex items-center gap-1 hover:bg-slate-50 transition-colors"
+                >
+                  {copiedRaw ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                  {copiedRaw ? 'Copied!' : 'Copy Text'}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                All raw text extracted from your uploaded document is stored here without modification or loss.
+              </p>
+              <pre className="p-3 bg-slate-900 text-slate-200 text-xs rounded-lg max-h-60 overflow-y-auto font-mono whitespace-pre-wrap leading-relaxed select-all">
+                {data.rawText}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

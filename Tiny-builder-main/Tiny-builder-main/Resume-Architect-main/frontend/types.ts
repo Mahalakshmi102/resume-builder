@@ -6,6 +6,8 @@ export interface Experience {
   endDate: string;
   description: string;
   isCurrent: boolean;
+  location?: string;
+  highlights?: string[];
 }
 
 export interface Education {
@@ -14,6 +16,7 @@ export interface Education {
   degree: string;
   startDate: string;
   endDate: string;
+  gpa?: string;
 }
 
 export interface Skill {
@@ -40,6 +43,26 @@ export interface Certification {
   credentialUrl?: string;
 }
 
+export interface LanguageItem {
+  id: string;
+  name: string;
+  proficiency?: string;
+}
+
+export interface AchievementItem {
+  id: string;
+  title: string;
+  description?: string;
+  date?: string;
+}
+
+export interface CustomSection {
+  id: string;
+  heading: string;
+  items: string[];
+  content?: string;
+}
+
 export interface ResumeData {
   fullName: string;
   email: string;
@@ -54,6 +77,11 @@ export interface ResumeData {
   skills: Skill[];
   projects: Project[];
   certifications?: Certification[];
+  languages?: LanguageItem[];
+  achievements?: AchievementItem[];
+  interests?: string[];
+  customSections?: CustomSection[];
+  rawText?: string;
   templateId: 'modern' | 'classic' | 'minimal' | 'sidebar' | 'executive' | 'creative' | 'developer';
   sections?: Record<string, boolean>;
 }
@@ -155,21 +183,32 @@ export interface CareerMetrics {
   roleMatchesCount: number;
 }
 
-export interface InterviewQuestion {
-  id: string;
-  category: 'Project Deep Dive' | 'Technical Verification' | 'Behavioral (STAR)' | 'Resume Probe';
-  question: string;
-  context: string;
-  interviewerIntent: string;
-  suggestedTalkingPoints: string[];
-  sampleGoodAnswer?: string;
-  difficulty?: 'Entry' | 'Mid' | 'Senior';
+// ---- AI Rehearsal / Mock Interview ----
+export interface InterviewAnswerFeedback {
+  score: number;
+  verdict: 'Strong Delivery' | 'Good Foundation' | 'Needs Practice';
+  suitability: 'Direct & Accurate Match' | 'Partially Suitable' | 'Off-Topic / Mismatch';
+  suitabilityAnalysis: string;
+  strengths: string[];
+  missingPoints: string[];
+  recommendedResponse: string;
 }
 
-export interface AnswerFeedback {
-  score: number;
-  verdict: 'Strong Hire' | 'Hire' | 'Needs Practice' | 'Weak Answer';
-  strengths: string[];
-  improvements: string[];
-  modelAnswer: string;
+export interface InterviewQuestion {
+  id: string;
+  category: 'Project Deep-Dive' | 'Technical Skills' | 'Behavioral & Experience' | 'Challenging Scenario';
+  question: string;
+  contextFromResume: string;
+  interviewerIntent: string;
+  modelAnswerOutline: string[];
+  difficulty: 'Standard' | 'Challenging' | 'Expert';
+  userAnswer?: string;
+  aiFeedback?: InterviewAnswerFeedback;
+}
+
+export interface RehearsalSession {
+  targetRole: string;
+  interviewStyle: 'Technical Screener' | 'Hiring Manager' | 'System Architect';
+  questions: InterviewQuestion[];
+  overallTips: string[];
 }

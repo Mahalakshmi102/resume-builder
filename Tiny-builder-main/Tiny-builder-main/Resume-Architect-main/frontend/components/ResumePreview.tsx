@@ -24,7 +24,11 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
     projects: rawData.projects || [],
     education: rawData.education || [],
     skills: rawData.skills || [],
-    certifications: rawData.certifications || []
+    certifications: rawData.certifications || [],
+    languages: rawData.languages || [],
+    achievements: rawData.achievements || [],
+    interests: rawData.interests || [],
+    customSections: rawData.customSections || [],
   };
 
   const formatDate = (dateStr: string) => {
@@ -364,8 +368,8 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
               </section>
             )}
 
-             {data.skills.length > 0 && data.sections?.skills !== false && (
-              <section>
+            {data.skills.length > 0 && data.sections?.skills !== false && (
+              <section className="mb-6">
                 <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Skills</h2>
                 <div className="text-sm leading-relaxed flex flex-wrap gap-x-2 gap-y-1">
                   {data.skills.map((s, idx) => (
@@ -383,6 +387,62 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
                 </div>
               </section>
             )}
+
+            {/* Certifications (Classic) */}
+            {data.certifications && data.certifications.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Certifications</h2>
+                {data.certifications.map(cert => (
+                  <div key={cert.id} className="mb-1 text-sm">
+                    <span className="font-bold">{cert.name}</span>
+                    {cert.issuer && <span> — {cert.issuer}</span>}
+                    {cert.issueDate && <span className="text-slate-500 ml-1 italic">({formatDate(cert.issueDate)})</span>}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Languages (Classic) */}
+            {data.languages && data.languages.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Languages</h2>
+                <div className="text-sm">
+                  {data.languages.map((l, i) => (
+                    <span key={l.id}>
+                      <strong>{l.name}</strong>{l.proficiency ? ` (${l.proficiency})` : ''}{i < data.languages.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Achievements (Classic) */}
+            {data.achievements && data.achievements.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">Honors & Achievements</h2>
+                {data.achievements.map(ach => (
+                  <div key={ach.id} className="mb-1 text-sm">
+                    <span className="font-bold">{ach.title}</span>
+                    {ach.description && <span> — {ach.description}</span>}
+                    {ach.date && <span className="text-slate-500 ml-1 italic">({ach.date})</span>}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Custom Sections (Classic) */}
+            {data.customSections && data.customSections.length > 0 && data.customSections.map(sec => (
+              <section key={sec.id} className="mb-6">
+                <h2 className="text-lg font-bold uppercase border-b border-slate-300 mb-3 pb-1">{sec.heading}</h2>
+                {sec.content ? (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{sec.content}</p>
+                ) : (
+                  <ul className="list-disc ml-5 space-y-1 text-sm">
+                    {sec.items.map((it, idx) => <li key={idx}>{it}</li>)}
+                  </ul>
+                )}
+              </section>
+            ))}
           </div>
         );
 
@@ -771,6 +831,74 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({
                 </section>
               )}
             </div>
+
+            {/* Certifications (Modern) */}
+            {data.certifications && data.certifications.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 border-b pb-1">Certifications</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {data.certifications.map(cert => (
+                    <div key={cert.id} className="text-sm">
+                      <div className="font-bold text-slate-800">{cert.name}</div>
+                      <div className="text-xs text-slate-600">{cert.issuer} {cert.issueDate ? `(${formatDate(cert.issueDate)})` : ''}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Languages (Modern) */}
+            {data.languages && data.languages.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 border-b pb-1">Languages</h2>
+                <div className="flex flex-wrap gap-4 text-sm text-slate-700">
+                  {data.languages.map(lang => (
+                    <span key={lang.id} className="inline-flex items-center gap-1.5">
+                      <strong className="text-slate-900">{lang.name}</strong>
+                      {lang.proficiency && <span className="text-xs text-slate-500">({lang.proficiency})</span>}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Achievements & Awards (Modern) */}
+            {data.achievements && data.achievements.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 border-b pb-1">Key Achievements & Honors</h2>
+                <div className="space-y-2 text-sm text-slate-700">
+                  {data.achievements.map(ach => (
+                    <div key={ach.id} className="relative pl-4 before:content-['•'] before:absolute before:left-0 before:text-primary">
+                      <span className="font-bold text-slate-900">{ach.title}</span>
+                      {ach.description && <span> — {ach.description}</span>}
+                      {ach.date && <span className="text-xs text-slate-400 ml-1 italic">({ach.date})</span>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Custom Sections (Modern) */}
+            {data.customSections && data.customSections.length > 0 && data.customSections.map(sec => (
+              <section key={sec.id} className="mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 border-b pb-1">{sec.heading}</h2>
+                {sec.content ? (
+                  <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{sec.content}</p>
+                ) : (
+                  <ul className="list-disc ml-5 space-y-1 text-sm text-slate-700">
+                    {sec.items.map((it, idx) => <li key={idx}>{it}</li>)}
+                  </ul>
+                )}
+              </section>
+            ))}
+
+            {/* Interests (Modern) */}
+            {data.interests && data.interests.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 border-b pb-1">Interests</h2>
+                <p className="text-sm text-slate-700">{data.interests.join(', ')}</p>
+              </section>
+            )}
           </div>
         );
     }

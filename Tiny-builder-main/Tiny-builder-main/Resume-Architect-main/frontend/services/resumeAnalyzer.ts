@@ -10,7 +10,9 @@ export const isResumeEmpty = (resumeData?: ResumeData | null): boolean => {
   const hasEdu = (resumeData.education || []).length > 0;
   const hasProj = (resumeData.projects || []).length > 0;
   const hasCert = (resumeData.certifications || []).length > 0;
-  return !hasName && !hasSummary && !hasSkills && !hasExp && !hasEdu && !hasProj && !hasCert;
+  const hasCustom = (resumeData.customSections || []).length > 0;
+  const hasRaw = !!resumeData.rawText?.trim();
+  return !hasName && !hasSummary && !hasSkills && !hasExp && !hasEdu && !hasProj && !hasCert && !hasCustom && !hasRaw;
 };
 
 export const analyzeResumeData = (

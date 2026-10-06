@@ -18,8 +18,8 @@ import {
   generateRoleBasedResume,
   generateImprovementRecommendations,
   parseResumeFromText,
-  generateInterviewQuestions,
-  evaluateInterviewAnswer,
+  generateMockInterviewQuestions,
+  evaluateCandidateInterviewAnswer,
 } from '../services/geminiService';
 import { extractTextFromPDF, extractTextFromFile, getPDFMetadata } from '../services/pdfService';
 import { ResumeData, EvidenceItem } from '../types';
@@ -177,11 +177,11 @@ router.post('/recommendations', async (req: Request, res: Response) => {
 });
 
 // ============================================================
-// POST /api/ai/parse-text
+// POST /api/ai/parse-text and POST /api/ai/parse-resume
 // Body: { text: string, targetRole?: string }
 // Returns: { parsedResume: ResumeData }
 // ============================================================
-router.post('/parse-text', async (req: Request, res: Response) => {
+const handleParseText = async (req: Request, res: Response) => {
   try {
     const { text, targetRole = 'Software Engineer' } = req.body;
     if (!text || typeof text !== 'string') {
@@ -194,7 +194,9 @@ router.post('/parse-text', async (req: Request, res: Response) => {
     console.error('[POST /ai/parse-text]', error.message);
     return res.status(500).json({ error: error.message });
   }
-});
+};
+router.post('/parse-text', handleParseText);
+router.post('/parse-resume', handleParseText);
 
 // ============================================================
 // POST /api/ai/analyze-pdf
@@ -244,27 +246,27 @@ router.post('/analyze-pdf', upload.single('file'), async (req: Request, res: Res
     return res.status(500).json({ error: error.message });
   }
 });
-
 // ============================================================
 // POST /api/ai/interview-questions
-// Body: { resumeData: ResumeData, targetRole?: string, interviewType?: string, difficulty?: string }
-// Returns: { questions: InterviewQuestion[] }
+// Body: { resumeData, targetRole, interviewStyle, jobDescription }
+// Returns: RehearsalSession (questions, tips, metadata)
 // ============================================================
 router.post('/interview-questions', async (req: Request, res: Response) => {
   try {
-    const { resumeData, targetRole, interviewType, difficulty } = req.body;
+    const { resumeData, targetRole, interviewStyle, jobDescription } = req.body;
+
     if (!resumeData) {
       return res.status(400).json({ error: 'resumeData is required' });
     }
 
-    const questions = await generateInterviewQuestions(
+    const session = await generateMockInterviewQuestions(
       resumeData as ResumeData,
-      targetRole || resumeData.targetRole || '',
-      interviewType || 'mixed',
-      difficulty || 'mid'
+      targetRole,
+      interviewStyle,
+      jobDescription
     );
 
-    return res.json({ questions });
+    return res.json(session);
   } catch (error: any) {
     console.error('[POST /ai/interview-questions]', error.message);
     return res.status(500).json({ error: error.message });
@@ -272,27 +274,30 @@ router.post('/interview-questions', async (req: Request, res: Response) => {
 });
 
 // ============================================================
-// POST /api/ai/interview-feedback
-// Body: { question: string, userAnswer: string, resumeContext?: string, targetRole?: string }
-// Returns: AnswerFeedback
+// POST /api/ai/evaluate-answer
+// Body: { question, interviewerIntent, candidateAnswer, resumeContext, modelAnswerOutline, category }
+// Returns: { score, verdict, suitability, suitabilityAnalysis, strengths, missingPoints, recommendedResponse }
 // ============================================================
-router.post('/interview-feedback', async (req: Request, res: Response) => {
+router.post('/evaluate-answer', async (req: Request, res: Response) => {
   try {
-    const { question, userAnswer, resumeContext, targetRole } = req.body;
-    if (!question || !userAnswer) {
-      return res.status(400).json({ error: 'question and userAnswer are required' });
+    const { question, interviewerIntent, candidateAnswer, resumeContext, modelAnswerOutline, category } = req.body;
+
+    if (!question || !candidateAnswer) {
+      return res.status(400).json({ error: 'question and candidateAnswer are required' });
     }
 
-    const feedback = await evaluateInterviewAnswer(
+    const evaluation = await evaluateCandidateInterviewAnswer(
       question,
-      userAnswer,
-      resumeContext || '',
-      targetRole || ''
+      interviewerIntent || '',
+      candidateAnswer,
+      resumeContext,
+      modelAnswerOutline,
+      category
     );
 
-    return res.json(feedback);
+    return res.json(evaluation);
   } catch (error: any) {
-    console.error('[POST /ai/interview-feedback]', error.message);
+    console.error('[POST /ai/evaluate-answer]', error.message);
     return res.status(500).json({ error: error.message });
   }
 });

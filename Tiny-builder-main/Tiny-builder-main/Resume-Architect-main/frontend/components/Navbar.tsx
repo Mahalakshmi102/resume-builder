@@ -1,12 +1,13 @@
+import React, { useState, useRef } from 'react';
 import {
   FileText, Cpu, Target, ShieldCheck, BarChart3,
-  Download, Printer, Menu, X, Loader2, Save, Upload, RotateCcw, Sparkles, Bot
+  Download, Printer, Menu, X, Loader2, Save, Upload, RotateCcw, Sparkles, Mic
 } from 'lucide-react';
 import { ResumeData } from '../types';
 import { analyzePDFResumeAPI } from '../services/apiClient';
 import { parseResumeTextClient, readFileContent } from '../services/resumeParser';
 
-export type NavTab = 'builder' | 'analyzer' | 'matcher' | 'rehearsal' | 'evidence' | 'reports';
+export type NavTab = 'builder' | 'analyzer' | 'matcher' | 'evidence' | 'reports' | 'rehearsal';
 
 interface NavbarProps {
   activeTab: NavTab;
@@ -47,7 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({
     { id: 'builder', label: 'Builder', icon: FileText },
     { id: 'analyzer', label: 'AI Analyzer', icon: Cpu },
     { id: 'matcher', label: 'Job Matcher', icon: Target },
-    { id: 'rehearsal', label: 'AI Rehearsal', icon: Bot },
+    { id: 'rehearsal', label: 'AI Rehearsal', icon: Mic },
     { id: 'evidence', label: 'Evidence', icon: ShieldCheck },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
   ];

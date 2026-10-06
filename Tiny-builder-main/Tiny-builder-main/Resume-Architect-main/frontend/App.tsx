@@ -158,45 +158,44 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-hidden relative">
 
         {/* BUILDER */}
-        {activeTab === 'builder' && (
-          <div className="flex h-full">
-            <div className="w-full md:w-1/2 lg:w-5/12 h-full z-10 no-print overflow-y-auto border-r border-slate-200">
-              <ResumeForm
-                data={masterResume}
-                onChange={handleBuilderChange}
-                onOpenEvidence={(skill) => setWhySkillModalName(skill || '')}
-                onOpenJobModal={() => setShowJobModal(true)}
+        <div className={activeTab === 'builder' ? 'flex h-full' : 'hidden'}>
+          <div className="w-full md:w-1/2 lg:w-5/12 h-full z-10 no-print overflow-y-auto border-r border-slate-200">
+            <ResumeForm
+              data={masterResume}
+              onChange={handleBuilderChange}
+              onOpenEvidence={(skill) => setWhySkillModalName(skill || '')}
+              onOpenJobModal={() => setShowJobModal(true)}
+            />
+          </div>
+          <div className="hidden md:block w-1/2 lg:w-7/12 h-full bg-slate-200 relative overflow-hidden">
+            <div className="absolute inset-0">
+              <ResumePreview
+                data={tailoredResume || masterResume}
+                onSkillClick={(skill) => setWhySkillModalName(skill)}
               />
             </div>
-            <div className="hidden md:block w-1/2 lg:w-7/12 h-full bg-slate-200 relative overflow-hidden">
-              <div className="absolute inset-0">
-                <ResumePreview
-                  data={tailoredResume || masterResume}
-                  onSkillClick={(skill) => setWhySkillModalName(skill)}
-                />
-              </div>
-            </div>
-            <div className="hidden print-area">
-              <ResumePreview data={tailoredResume || masterResume} isPrintView />
-            </div>
           </div>
-        )}
+          <div className="hidden print-area">
+            <ResumePreview data={tailoredResume || masterResume} isPrintView />
+          </div>
+        </div>
 
         {/* AI ANALYZER */}
-        {activeTab === 'analyzer' && (
+        <div className={activeTab === 'analyzer' ? 'h-full' : 'hidden'}>
           <AIAnalyzer
             resumeData={masterResume}
             evidenceList={evidenceList}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
             onNavigateToJobMatcher={() => setActiveTab('matcher')}
             onNavigateToEvidence={() => setActiveTab('evidence')}
+            onNavigateToRehearsal={() => setActiveTab('rehearsal')}
             onUpdateResume={(newResume) => setMasterResume(newResume)}
             onNavigateToBuilder={() => setActiveTab('builder')}
           />
-        )}
+        </div>
 
         {/* JOB MATCHER */}
-        {activeTab === 'matcher' && (
+        <div className={activeTab === 'matcher' ? 'h-full' : 'hidden'}>
           <JobMatcher
             resumeData={masterResume}
             evidenceList={evidenceList}
@@ -206,28 +205,28 @@ const App: React.FC = () => {
             }}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
           />
-        )}
+        </div>
 
-        {/* AI REHEARSAL */}
-        {activeTab === 'rehearsal' && (
+        {/* AI REHEARSAL / MOCK INTERVIEW */}
+        <div className={activeTab === 'rehearsal' ? 'h-full' : 'hidden'}>
           <AIRehearsalPage
             resumeData={activeResume || masterResume}
             onNavigateToBuilder={() => setActiveTab('builder')}
           />
-        )}
+        </div>
 
         {/* EVIDENCE */}
-        {activeTab === 'evidence' && (
+        <div className={activeTab === 'evidence' ? 'h-full' : 'hidden'}>
           <EvidencePage
             resumeData={masterResume}
             evidenceList={evidenceList}
             onAddEvidence={addEvidence}
             onOpenWhyThisSkill={(skill) => setWhySkillModalName(skill)}
           />
-        )}
+        </div>
 
         {/* REPORTS */}
-        {activeTab === 'reports' && (
+        <div className={activeTab === 'reports' ? 'h-full' : 'hidden'}>
           <ReportsPage
             resumeData={masterResume}
             tailoredResume={tailoredResume}
@@ -236,7 +235,7 @@ const App: React.FC = () => {
             onNavigateToEvidence={() => setActiveTab('evidence')}
             onNavigateToMatcher={() => setActiveTab('matcher')}
           />
-        )}
+        </div>
       </main>
 
       {/* Why This Skill Modal */}

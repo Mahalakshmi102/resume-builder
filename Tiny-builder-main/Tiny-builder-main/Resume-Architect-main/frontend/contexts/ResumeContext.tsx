@@ -96,6 +96,11 @@ export const BLANK_RESUME: ResumeData = {
   skills: [],
   projects: [],
   certifications: [],
+  languages: [],
+  achievements: [],
+  interests: [],
+  customSections: [],
+  rawText: '',
   templateId: 'modern',
 };
 
@@ -110,21 +115,32 @@ export const ResumeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(true);
 
-  // ── Start clean and empty on initial project launch ──────────
+  // ── Load persisted master resume without wiping valid user data ──────────
   useEffect(() => {
     try {
-      // Clear legacy storage that had test resume data
-      localStorage.removeItem(STORAGE_MASTER_RESUME);
-      localStorage.removeItem(STORAGE_TAILORED_RESUME);
-      localStorage.removeItem(STORAGE_EVIDENCE_LIST);
-      localStorage.removeItem(STORAGE_VERSIONS);
-
-      // Check if there is an active session resume
-      const sessionMaster = sessionStorage.getItem(STORAGE_MASTER_RESUME);
-      if (sessionMaster) {
-        const parsed = JSON.parse(sessionMaster);
+      // Clear legacy sample data if present
+      const savedMaster = localStorage.getItem(STORAGE_MASTER_RESUME) || sessionStorage.getItem(STORAGE_MASTER_RESUME);
+      if (savedMaster) {
+        const parsed = JSON.parse(savedMaster);
+        // Only discard if it's the old hardcoded demo user
         if (parsed && typeof parsed === 'object') {
-          setMasterResumeState(parsed);
+          if (parsed.fullName === 'Alex Chen' || parsed.fullName === 'Sarah Jenkins' || parsed.email === 'alex.chen@example.com') {
+            localStorage.removeItem(STORAGE_MASTER_RESUME);
+            sessionStorage.removeItem(STORAGE_MASTER_RESUME);
+            setMasterResumeState(BLANK_RESUME);
+          } else if (
+            parsed.fullName ||
+            parsed.rawText ||
+            (parsed.skills && parsed.skills.length > 0) ||
+            (parsed.experience && parsed.experience.length > 0) ||
+            (parsed.education && parsed.education.length > 0) ||
+            (parsed.projects && parsed.projects.length > 0) ||
+            (parsed.customSections && parsed.customSections.length > 0)
+          ) {
+            setMasterResumeState({ ...BLANK_RESUME, ...parsed });
+          } else {
+            setMasterResumeState(BLANK_RESUME);
+          }
         }
       } else {
         setMasterResumeState(BLANK_RESUME);
@@ -149,6 +165,7 @@ export const ResumeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     autoSaveTimer.current = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_MASTER_RESUME, JSON.stringify(data));
+        sessionStorage.setItem(STORAGE_MASTER_RESUME, JSON.stringify(data));
         const now = new Date().toISOString();
         setLastSavedAt(now);
       } catch (err: any) {
@@ -164,6 +181,10 @@ export const ResumeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setMasterResume = useCallback(
     (data: ResumeData) => {
       setMasterResumeState(data);
+      try {
+        localStorage.setItem(STORAGE_MASTER_RESUME, JSON.stringify(data));
+        sessionStorage.setItem(STORAGE_MASTER_RESUME, JSON.stringify(data));
+      } catch (e) { /* ignore */ }
       persistMaster(data);
     },
     [persistMaster]
@@ -251,6 +272,9 @@ export const ResumeProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setLastSavedAt(null);
     setSaveError(null);
     sessionStorage.removeItem(STORAGE_MASTER_RESUME);
+    sessionStorage.removeItem('jm_job_description');
+    sessionStorage.removeItem('jm_target_role');
+    sessionStorage.removeItem('jm_match_result');
     localStorage.removeItem(STORAGE_MASTER_RESUME);
     localStorage.removeItem(STORAGE_EVIDENCE_LIST);
     localStorage.removeItem(STORAGE_TAILORED_RESUME);
