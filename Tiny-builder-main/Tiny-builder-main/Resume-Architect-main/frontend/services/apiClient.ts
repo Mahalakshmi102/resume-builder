@@ -5,7 +5,8 @@
 // If backend is unreachable, falls back to client-side logic.
 // ============================================================
 
-const BACKEND_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) || 'http://localhost:5000';
+const rawBackendUrl = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) || 'http://localhost:5000';
+const BACKEND_URL = rawBackendUrl.replace(/\/+$/, '');
 
 
 // ============================================================
